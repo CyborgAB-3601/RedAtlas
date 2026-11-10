@@ -1,0 +1,20 @@
+{
+  "name": "red-atlas-mars",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 3000 --host",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "shadcn": "^4.22.0"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^6.1.2",
+    "lucide-react": "^1.59.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "vite": "^8.3.4"
+  }
+}
