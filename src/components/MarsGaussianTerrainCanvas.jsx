@@ -730,6 +730,9 @@ export default function MarsGaussianTerrainCanvas({
         const vNorm = j / (GRID_SIZE_Z - 1);
         uvs.push(uNorm, vNorm);
 
+        const lat = latMax - vNorm * (latMax - latMin);
+        const lng = lngMin + uNorm * (lngMax - lngMin);
+
         // Finite differences normal vector
         const hL = i > 0 ? heightMap[j][i - 1] : yWorld;
         const hR = i < GRID_SIZE_X - 1 ? heightMap[j][i + 1] : yWorld;
