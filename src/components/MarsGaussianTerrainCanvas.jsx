@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 // Decodes NASA MOLA color shaded relief map RGB into elevation in meters with smooth continuity
-function decodeMolaRgbToElevation(r, g, b) {
+function decodeMolaRgbToElevation(r, g, b, lat = 0, lng = 0) {
   const rf = r / 255.0;
   const gf = g / 255.0;
   const bf = b / 255.0;
@@ -42,10 +42,13 @@ function decodeMolaRgbToElevation(r, g, b) {
   const s = max === 0 ? 0 : delta / max;
   const v = max;
 
-  // Ultra-high volcanic summits (Olympus Mons, Tharsis peaks: pale pinkish-white)
-  // Strict check to prevent JPEG compression artifacts from triggering false spikes
-  if (s < 0.16 && v > 0.65 && rf > 0.65 && gf > 0.65 && bf > 0.65) {
-    return 14000 + (v - 0.65) / 0.35 * 7287; // Up to 21,287m
+  // Real geographic check: summits > 8000m on Mars ONLY exist in the Tharsis volcanic province
+  // (Olympus Mons, Ascraeus, Pavonis, Arsia Mons: Longitude -145 to -85, Latitude -25 to +30).
+  // Outside Tharsis, low-saturation white highlights in MOLA shaded relief are sunlit hillslopes,
+  // NOT 21,000m summits. Restricting this eliminates the artificial high wall / spike formations!
+  const isTharsisVolcano = lng >= -145 && lng <= -85 && lat >= -25 && lat <= 30;
+  if (isTharsisVolcano && s < 0.16 && v > 0.70 && rf > 0.70 && gf > 0.70 && bf > 0.70) {
+    return 8000 + ((v - 0.70) / 0.30) * 13287; // Up to 21,287m strictly for real volcanoes
   }
 
   // Deep impact basins: Hellas, Argyre, Isidis (deep purple/magenta h > 0.75)
@@ -58,7 +61,10 @@ function decodeMolaRgbToElevation(r, g, b) {
   // Hue ranges continuously from ~0.65 down to ~0.0
   const clampedH = Math.max(0.0, Math.min(0.68, h));
   const t = (0.68 - clampedH) / 0.68;
-  return -5000 + t * 13500;
+  const elevM = -5000 + t * 13000;
+
+  // Clamp non-volcanic regions strictly to real Mars elevation bounds [-8200m, +7500m]
+  return Math.min(isTharsisVolcano ? 21287 : 7500, Math.max(-8200, elevM));
 }
 
 // Physically calibrated topographic elevation profiles for NASA's iconic exploration sites
@@ -609,8 +615,10 @@ export default function MarsGaussianTerrainCanvas({
     const widthKm = Math.max(4, Math.round(lngSpan * kmPerLngDeg));
     const heightKm = Math.max(4, Math.round(latSpan * kmPerLatDeg));
 
-    // True physical aspect ratio (Width : Height) - preserves exact drawn rectangle without cutting
-    const aspect = Math.max(0.25, Math.min(4.0, widthKm / heightKm));
+    // Visual aspect ratio (Width : Height) matches exactly what the user drew on screen (Square stays Square)
+    const aspect = box.aspectRatio
+      ? Math.max(0.25, Math.min(4.0, box.aspectRatio))
+      : Math.max(0.25, Math.min(4.0, widthKm / heightKm));
 
     const BASE_SPAN = 46.0;
     let spanX, spanZ;
@@ -673,7 +681,7 @@ export default function MarsGaussianTerrainCanvas({
           const r = molaData.imgData[idx];
           const g = molaData.imgData[idx + 1];
           const b = molaData.imgData[idx + 2];
-          sampledMeters = decodeMolaRgbToElevation(r, g, b);
+          sampledMeters = decodeMolaRgbToElevation(r, g, b, lat, lng);
         } else {
           sampledMeters = generateScientificLocationElevation(box.id, uProc, vProc);
         }
@@ -682,8 +690,8 @@ export default function MarsGaussianTerrainCanvas({
       }
     }
 
-    // Apply 3x3 Median Outlier Filter + Gradient Clamping (Guarantees Zero Spikes)
-    const cleanedMetersGrid = applyAntiSpikeFilter(rawMetersGrid, GRID_SIZE_X, GRID_SIZE_Z, isNamedPreset ? 2500.0 : 800.0);
+    // Apply 3x3 Median Outlier Filter + Gradient Clamping (Guarantees Zero Spikes or long artificial walls)
+    const cleanedMetersGrid = applyAntiSpikeFilter(rawMetersGrid, GRID_SIZE_X, GRID_SIZE_Z, isNamedPreset ? 1600.0 : 500.0);
 
     // Track real min/max meters
     let sampleMinM = Infinity;

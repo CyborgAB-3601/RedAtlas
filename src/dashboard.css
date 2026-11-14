@@ -4676,7 +4676,9 @@
 .bbox-satellite-map-wrap {
   position: relative;
   width: 100%;
-  height: 340px;
+  aspect-ratio: 2 / 1;
+  max-height: 440px;
+  margin: 0 auto;
   border-radius: var(--radius-xl);
   overflow: hidden;
   background: #0E0C0A;
@@ -4690,7 +4692,7 @@
 .bbox-satellite-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: fill;
   display: block;
   pointer-events: none;
   filter: contrast(1.05) brightness(0.95);

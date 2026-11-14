@@ -22,6 +22,7 @@ export const NASA_PRESET_REGIONS = [
     latMax: 23.5,
     lngMin: -139.0,
     lngMax: -128.0,
+    aspectRatio: 1.0,
     icon: '🌋',
     feature: 'Volcanic Shield & Caldera'
   },
@@ -33,6 +34,7 @@ export const NASA_PRESET_REGIONS = [
     latMax: -9.5,
     lngMin: -78.0,
     lngMax: -64.0,
+    aspectRatio: 1.5,
     icon: '🏜️',
     feature: 'Canyon Rift & Stratified Walls'
   },
@@ -44,6 +46,7 @@ export const NASA_PRESET_REGIONS = [
     latMax: -2.5,
     lngMin: 135.5,
     lngMax: 140.0,
+    aspectRatio: 1.0,
     icon: '🚀',
     feature: 'Crater Floor & Central Mound'
   },
@@ -55,6 +58,7 @@ export const NASA_PRESET_REGIONS = [
     latMax: 20.5,
     lngMin: 75.0,
     lngMax: 79.5,
+    aspectRatio: 1.0,
     icon: '💧',
     feature: 'Ancient River Delta & Lakebed'
   },
@@ -66,6 +70,7 @@ export const NASA_PRESET_REGIONS = [
     latMax: 17.0,
     lngMin: 30.0,
     lngMax: 35.0,
+    aspectRatio: 1.0,
     icon: '🏗️',
     feature: 'Alluvial Plain & Wrinkle Dunes'
   },
@@ -77,6 +82,7 @@ export const NASA_PRESET_REGIONS = [
     latMax: 87.0,
     lngMin: -45.0,
     lngMax: 45.0,
+    aspectRatio: 1.0,
     icon: '❄️',
     feature: 'Polar Ice Sheets & Spiral Scarps'
   }
@@ -178,6 +184,9 @@ export default function MarsAreaBoundingBoxSelector({
       const minY = Math.min(tempBox.yMin, tempBox.yMax);
       const maxY = Math.max(tempBox.yMin, tempBox.yMax);
 
+      const normW = maxX - minX;
+      const normH = maxY - minY;
+
       const nw = normToGeo(minX, minY);
       const se = normToGeo(maxX, maxY);
 
@@ -190,6 +199,13 @@ export default function MarsAreaBoundingBoxSelector({
       const kmHeight = Math.max(2, Math.round(((latMax - latMin) / 180) * Math.PI * 3389.5));
       const kmWidth = Math.max(2, Math.round(((lngMax - lngMin) / 360) * 2 * Math.PI * 3389.5 * Math.cos((midLat * Math.PI) / 180)));
 
+      // Visual aspect ratio as drawn by the user on the 2:1 satellite map
+      // normW is normalized [0..1] across width, normH is normalized [0..1] across height.
+      // Container is 2:1 (width = 2 * height)
+      // visual aspect ratio = (normW * 2.0) / normH
+      // When user draws a square on screen, visualAspect is ~1.0!
+      const visualAspect = Math.max(0.25, Math.min(4.0, (normW * 2.0) / (normH || 0.001)));
+
       const customBox = {
         id: 'custom_selection_' + Date.now(),
         name: `Drawn Sector (${kmWidth} × ${kmHeight} km)`,
@@ -198,6 +214,7 @@ export default function MarsAreaBoundingBoxSelector({
         latMax,
         lngMin,
         lngMax,
+        aspectRatio: visualAspect,
         icon: '📐',
         feature: `${kmWidth} × ${kmHeight} km Area`
       };
