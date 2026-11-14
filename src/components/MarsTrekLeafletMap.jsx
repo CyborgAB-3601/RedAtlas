@@ -134,10 +134,10 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
     mapInstanceRef.current = map;
 
     map.on('zoomend', () => {
-        if (onZoomChangeRef.current) {
-          onZoomChangeRef.current(map.getZoom());
-        }
-      });
+      if (onZoomChangeRef.current) {
+        onZoomChangeRef.current(map.getZoom());
+      }
+    });
 
     const markersGroup = L.layerGroup().addTo(map);
     markersLayerRef.current = markersGroup;
@@ -156,125 +156,125 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
         const center = map.getCenter();
         const zoom = map.getZoom();
 
-            if(onViewportChangeRef.current) {
-            onViewportChangeRef.current({
-              north: bounds.getNorth(),
-              south: bounds.getSouth(),
-              west: bounds.getWest(),
-              east: bounds.getEast(),
-              centerLat: center.lat,
-              centerLng: center.lng,
-              zoom
-            });
-          }
-        } catch (e) { }
-      };
+        if (onViewportChangeRef.current) {
+          onViewportChangeRef.current({
+            north: bounds.getNorth(),
+            south: bounds.getSouth(),
+            west: bounds.getWest(),
+            east: bounds.getEast(),
+            centerLat: center.lat,
+            centerLng: center.lng,
+            zoom
+          });
+        }
+      } catch (e) { }
+    };
 
-      map.on('move', notifyViewport);
-      map.on('moveend', notifyViewport);
-      map.on('zoomend', notifyViewport);
+    map.on('move', notifyViewport);
+    map.on('moveend', notifyViewport);
+    map.on('zoomend', notifyViewport);
 
-      // Initial trigger
-      setTimeout(notifyViewport, 200);
+    // Initial trigger
+    setTimeout(notifyViewport, 200);
 
-      return () => {
-        map.off('move', notifyViewport);
-        map.off('moveend', notifyViewport);
-        map.off('zoomend', notifyViewport);
-        map.remove();
-        mapInstanceRef.current = null;
-        tileLayerRef.current = null;
-      };
-}, []);
+    return () => {
+      map.off('move', notifyViewport);
+      map.off('moveend', notifyViewport);
+      map.off('zoomend', notifyViewport);
+      map.remove();
+      mapInstanceRef.current = null;
+      tileLayerRef.current = null;
+    };
+  }, []);
 
-// 2. Direct NASA JPL Mars Trek WMTS Tile Layer: live tiles streaming without obstruction
-useEffect(() => {
-  const map = mapInstanceRef.current;
-  if (!map) return;
+  // 2. Direct NASA JPL Mars Trek WMTS Tile Layer: live tiles streaming without obstruction
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
 
-  const cfg = TREK_LAYERS[viewMode] || TREK_LAYERS.Satellite;
+    const cfg = TREK_LAYERS[viewMode] || TREK_LAYERS.Satellite;
 
-  // Dynamically update map maxZoom limit based on active layer
-  map.setMaxZoom(cfg.maxZoom);
-  if (map.getZoom() > cfg.maxZoom) {
-    map.setZoom(cfg.maxZoom);
-  }
+    // Dynamically update map maxZoom limit based on active layer
+    map.setMaxZoom(cfg.maxZoom);
+    if (map.getZoom() > cfg.maxZoom) {
+      map.setZoom(cfg.maxZoom);
+    }
 
-  if (tileLayerRef.current) {
-    map.removeLayer(tileLayerRef.current);
-  }
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+    }
 
-  const newTileLayer = L.tileLayer(cfg.url, {
-    tileSize: 256,
-    minZoom: 0,
-    maxZoom: cfg.maxZoom,
-    noWrap: true,
-    bounds: [[-90, -180], [90, 180]],
-    className: 'mars-trek-official-tile'
-  });
+    const newTileLayer = L.tileLayer(cfg.url, {
+      tileSize: 256,
+      minZoom: 0,
+      maxZoom: cfg.maxZoom,
+      noWrap: true,
+      bounds: [[-90, -180], [90, 180]],
+      className: 'mars-trek-official-tile'
+    });
 
-  newTileLayer.addTo(map);
-  tileLayerRef.current = newTileLayer;
-}, [viewMode]);
+    newTileLayer.addTo(map);
+    tileLayerRef.current = newTileLayer;
+  }, [viewMode]);
 
-// 3. Handle Regional Views / Fly-to Presets
-useEffect(() => {
-  const map = mapInstanceRef.current;
-  if (!map) return;
+  // 3. Handle Regional Views / Fly-to Presets
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
 
-  switch (globalView) {
-    case 'Equatorial Basin':
-      map.flyTo([-14.0, -59.3], 3, { duration: 1.2, easeLinearity: 0.25 });
-      break;
-    case 'Polar Ice Caps':
-      map.flyTo([78.0, 45.0], 3, { duration: 1.2, easeLinearity: 0.25 });
-      break;
-    case 'Tharsis Rise':
-      map.flyTo([18.7, -133.8], 3, { duration: 1.2, easeLinearity: 0.25 });
-      break;
-    case 'Mars Global View':
-    default:
-      map.flyTo([0, -35], 1, { duration: 1.2, easeLinearity: 0.25 });
-      break;
-  }
-}, [globalView]);
+    switch (globalView) {
+      case 'Equatorial Basin':
+        map.flyTo([-14.0, -59.3], 3, { duration: 1.2, easeLinearity: 0.25 });
+        break;
+      case 'Polar Ice Caps':
+        map.flyTo([78.0, 45.0], 3, { duration: 1.2, easeLinearity: 0.25 });
+        break;
+      case 'Tharsis Rise':
+        map.flyTo([18.7, -133.8], 3, { duration: 1.2, easeLinearity: 0.25 });
+        break;
+      case 'Mars Global View':
+      default:
+        map.flyTo([0, -35], 1, { duration: 1.2, easeLinearity: 0.25 });
+        break;
+    }
+  }, [globalView]);
 
-// 4. Update Markers & Route Overlay
-useEffect(() => {
-  const map = mapInstanceRef.current;
-  const markersGroup = markersLayerRef.current;
-  const routeGroup = routeLayerRef.current;
-  if (!map || !markersGroup || !routeGroup) return;
+  // 4. Update Markers & Route Overlay
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const markersGroup = markersLayerRef.current;
+    const routeGroup = routeLayerRef.current;
+    if (!map || !markersGroup || !routeGroup) return;
 
-  markersGroup.clearLayers();
-  routeGroup.clearLayers();
+    markersGroup.clearLayers();
+    routeGroup.clearLayers();
 
-  const baseLocations = (activeWaypoints && activeWaypoints.length > 0)
-    ? activeWaypoints.map((wp) => MARS_LOCATIONS[wp.id] || wp).filter(Boolean)
-    : Object.values(MARS_LOCATIONS);
+    const baseLocations = (activeWaypoints && activeWaypoints.length > 0)
+      ? activeWaypoints.map((wp) => MARS_LOCATIONS[wp.id] || wp).filter(Boolean)
+      : Object.values(MARS_LOCATIONS);
 
-  // Ensure selected location (including from search) is always rendered and visible on map
-  const locationsToRender = [...baseLocations];
-  if (selectedLocation?.id && !locationsToRender.some((l) => l.id === selectedLocation.id)) {
-    locationsToRender.push(selectedLocation);
-  }
+    // Ensure selected location (including from search) is always rendered and visible on map
+    const locationsToRender = [...baseLocations];
+    if (selectedLocation?.id && !locationsToRender.some((l) => l.id === selectedLocation.id)) {
+      locationsToRender.push(selectedLocation);
+    }
 
-  const routeCoords = [];
+    const routeCoords = [];
 
-  locationsToRender.forEach((loc) => {
-    if (!loc.coords?.lat || !loc.coords?.lng) return;
-    const [lat, lng] = parseLatLng(loc.coords.lat, loc.coords.lng);
-    const isSelected = selectedLocation?.id === loc.id;
-    const isBase = loc.id === 'proposed_base';
+    locationsToRender.forEach((loc) => {
+      if (!loc.coords?.lat || !loc.coords?.lng) return;
+      const [lat, lng] = parseLatLng(loc.coords.lat, loc.coords.lng);
+      const isSelected = selectedLocation?.id === loc.id;
+      const isBase = loc.id === 'proposed_base';
 
-    routeCoords.push([lat, lng]);
+      routeCoords.push([lat, lng]);
 
-    let html = '';
-    let iconSize = [32, 32];
-    let iconAnchor = [16, 16];
+      let html = '';
+      let iconSize = [32, 32];
+      let iconAnchor = [16, 16];
 
-    if (isBase) {
-      html = `
+      if (isBase) {
+        html = `
           <div class="base-site-marker leaflet-custom-marker ${isSelected ? 'selected' : ''}">
             <div class="base-static-ring inner"></div>
             <div class="base-static-ring outer"></div>
@@ -291,10 +291,10 @@ useEffect(() => {
             </div>
           </div>
         `;
-      iconSize = [180, 50];
-      iconAnchor = [20, 25];
-    } else {
-      html = `
+        iconSize = [180, 50];
+        iconAnchor = [20, 25];
+      } else {
+        html = `
           <div class="waypoint-marker standard-marker leaflet-custom-marker ${isSelected ? 'selected' : ''}">
             <div class="waypoint-dot-outer">
               <div class="waypoint-dot-inner"></div>
@@ -302,28 +302,38 @@ useEffect(() => {
             <span class="waypoint-label">${loc.name}</span>
           </div>
         `;
-      iconSize = [140, 32];
-      iconAnchor = [10, 16];
-    }
-
-    const customIcon = L.divIcon({
-      className: 'leaflet-marker-wrapper',
-      html,
-      iconSize,
-      iconAnchor
-    });
-
-    const marker = L.marker([lat, lng], { icon: customIcon });
-
-    marker.on('click', (e) => {
-      L.DomEvent.stopPropagation(e);
-      if (onSelectLocation) {
-        onSelectLocation(loc);
+        iconSize = [140, 32];
+        iconAnchor = [10, 16];
       }
+
+      const customIcon = L.divIcon({
+        className: 'leaflet-marker-wrapper',
+        html,
+        iconSize,
+        iconAnchor
+      });
+
+      const marker = L.marker([lat, lng], { icon: customIcon });
+
+      marker.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        if (onSelectLocation) {
+          onSelectLocation(loc);
+        }
+      });
+
+      markersGroup.addLayer(marker);
     });
 
-    markersGroup.addLayer(marker);
-  });
+    // Draw route connecting exploration sites
+    if (routeCoords.length >= 2) {
+      const routeShadow = L.polyline(routeCoords, {
+        color: 'rgba(0, 0, 0, 0.65)',
+        weight: 5,
+        lineCap: 'round',
+        lineJoin: 'round'
+      });
+      routeGroup.addLayer(routeShadow);
 
   // Render Custom Pinned Markers Created from 3D Gaussian Splatting
   if (pinnedLocations && pinnedLocations.length > 0) {
@@ -363,55 +373,45 @@ useEffect(() => {
     });
   }
 
-  // Draw route connecting exploration sites
-  if (routeCoords.length >= 2) {
-    const routeShadow = L.polyline(routeCoords, {
-      color: 'rgba(0, 0, 0, 0.65)',
-      weight: 5,
-      lineCap: 'round',
-      lineJoin: 'round'
+      const routeLine = L.polyline(routeCoords, {
+        color: '#FFFFFF',
+        weight: 2.5,
+        dashArray: '4, 8',
+        lineCap: 'round',
+        lineJoin: 'round',
+        className: 'leaflet-route-animated'
+      });
+      routeGroup.addLayer(routeLine);
+    }
+  }, [activeWaypoints, selectedLocation?.id, onSelectLocation]);
+
+  // 5. Smoothly fly to selected location on map when selectedLocation changes (from search or clicks)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !selectedLocation?.coords?.lat || !selectedLocation?.coords?.lng) return;
+
+    const [lat, lng] = parseLatLng(selectedLocation.coords.lat, selectedLocation.coords.lng);
+    const targetZoom = Math.min(map.getMaxZoom(), Math.max(map.getZoom(), 4));
+    map.flyTo([lat, lng], targetZoom, {
+      duration: 1.5,
+      easeLinearity: 0.25
     });
-    routeGroup.addLayer(routeShadow);
+  }, [selectedLocation?.id, selectedLocation?.coords?.lat, selectedLocation?.coords?.lng]);
 
-    const routeLine = L.polyline(routeCoords, {
-      color: '#FFFFFF',
-      weight: 2.5,
-      dashArray: '4, 8',
-      lineCap: 'round',
-      lineJoin: 'round',
-      className: 'leaflet-route-animated'
-    });
-    routeGroup.addLayer(routeLine);
-  }
-}, [activeWaypoints, selectedLocation?.id, onSelectLocation]);
-
-// 5. Smoothly fly to selected location on map when selectedLocation changes (from search or clicks)
-useEffect(() => {
-  const map = mapInstanceRef.current;
-  if (!map || !selectedLocation?.coords?.lat || !selectedLocation?.coords?.lng) return;
-
-  const [lat, lng] = parseLatLng(selectedLocation.coords.lat, selectedLocation.coords.lng);
-  const targetZoom = Math.min(map.getMaxZoom(), Math.max(map.getZoom(), 4));
-  map.flyTo([lat, lng], targetZoom, {
-    duration: 1.5,
-    easeLinearity: 0.25
-  });
-}, [selectedLocation?.id, selectedLocation?.coords?.lat, selectedLocation?.coords?.lng]);
-
-return (
-  <div
-    ref={mapContainerRef}
-    className="mars-trek-leaflet-viewport"
-    style={{
-      position: 'absolute',
-      inset: 0,
-      width: '100%',
-      height: '100%',
-      background: '#09080A',
-      overflow: 'hidden'
-    }}
-  />
-);
+  return (
+    <div
+      ref={mapContainerRef}
+      className="mars-trek-leaflet-viewport"
+      style={{
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        background: '#09080A',
+        overflow: 'hidden'
+      }}
+    />
+  );
 });
 
 export default MarsTrekLeafletMap;

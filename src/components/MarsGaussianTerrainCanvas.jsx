@@ -831,15 +831,18 @@ export default function MarsGaussianTerrainCanvas({
     let pointerDownPos = { x: 0, y: 0 };
 
     const handlePointerDown = (e) => {
+      // Ignore right clicks (which are for panning)
+      if (e.button !== 0) return;
       pointerDownTime = Date.now();
       pointerDownPos = { x: e.clientX, y: e.clientY };
     };
 
     const handlePointerUp = (e) => {
-      // Only trigger if it's a click (not an orbit drag)
+      if (e.button !== 0) return;
+      // Allow slight movement (up to 14px) and normal click duration (up to 550ms)
       const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
       const elapsed = Date.now() - pointerDownTime;
-      if (dist > 5 || elapsed > 350) return; // was a drag orbit
+      if (dist > 14 || elapsed > 550) return; // was an intended orbit drag
 
       if (!pinProbeActive) return;
 
@@ -1364,13 +1367,18 @@ export default function MarsGaussianTerrainCanvas({
     // Toggle Mode
     if (renderMode === 'splats') {
       splatsPoints.visible = true;
-      terrainMesh.visible = false;
-      // In splats mode, ensure mesh remains active for raycasting probe
-      terrainMesh.material.visible = false;
+      // In splats mode, mesh MUST remain visible = true so Three.js raycaster can intersect it,
+      // but its material is made 100% transparent and depthWrite = false so it's invisible to the eye!
+      terrainMesh.visible = true;
+      terrainMesh.material.transparent = true;
+      terrainMesh.material.opacity = 0.0;
+      terrainMesh.material.depthWrite = false;
     } else {
       splatsPoints.visible = false;
       terrainMesh.visible = true;
-      terrainMesh.material.visible = true;
+      terrainMesh.material.transparent = false;
+      terrainMesh.material.opacity = 1.0;
+      terrainMesh.material.depthWrite = true;
     }
 
     // D. 3D INTERACTIVE PINS (Tailored to each scientific location)
