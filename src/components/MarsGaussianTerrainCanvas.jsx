@@ -468,6 +468,9 @@ export default function MarsGaussianTerrainCanvas({
 
   const [localPinnedLocations, setLocalPinnedLocations] = useState([]);
 
+  // Active state
+  const [renderMode, setRenderMode] = useState('splats'); // 'splats' | 'textured' | 'elevation' | 'slope'
+
   // Sync with prop if provided
   useEffect(() => {
     if (pinnedLocations && pinnedLocations.length > 0) {
