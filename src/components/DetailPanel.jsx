@@ -63,8 +63,24 @@ export default function DetailPanel({
   const [activeTab, setActiveTab] = useState('Overview');
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
-  const [isMarkedReached, setIsMarkedReached] = useState(false);
+  const [isReachedConfirming, setIsReachedConfirming] = useState(false);
+  const reachedTimerRef = useRef(null);
   const moreMenuRef = useRef(null);
+
+  useEffect(() => {
+    setIsReachedConfirming(false);
+    if (reachedTimerRef.current) {
+      clearTimeout(reachedTimerRef.current);
+    }
+  }, [locationData?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (reachedTimerRef.current) {
+        clearTimeout(reachedTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const handleOutsideClick = (e) => {
@@ -521,25 +537,50 @@ export default function DetailPanel({
         {/* Action Button Strip */}
         <div className="detail-action-strip">
           <button
-            className={`add-to-route-btn ${isInPath ? 'added' : ''}`}
+            className={`add-to-route-btn ${
+              isReachedConfirming
+                ? 'place-reached-green'
+                : isInPath
+                ? 'mark-reached-black'
+                : ''
+            }`}
             onClick={() => {
+              if (isReachedConfirming) return;
+
               if (isInPath) {
-                // When place reached is clicked, complete this segment, remove path, and return button to normal
-                if (onRemoveFromRoute) {
-                  onRemoveFromRoute(activeLoc);
-                } else if (onAddToRoute) {
-                  onAddToRoute();
-                }
+                // 1. Immediately turn green and show "Place Reached"
+                setIsReachedConfirming(true);
+
+                // 2. Then after 900ms, remove the path and revert button back to "Add to Route"
+                reachedTimerRef.current = setTimeout(() => {
+                  if (onRemoveFromRoute) {
+                    onRemoveFromRoute(activeLoc);
+                  } else if (onAddToRoute) {
+                    onAddToRoute();
+                  }
+                  setIsReachedConfirming(false);
+                }, 900);
               } else {
                 onAddToRoute();
               }
             }}
-            title={isInPath ? 'Place reached - Click to remove path & complete traverse' : 'Add to expedition route'}
+            title={
+              isReachedConfirming
+                ? 'Place reached - completing segment'
+                : isInPath
+                ? 'Mark Reached - Click to complete place'
+                : 'Add to expedition route'
+            }
           >
-            {isInPath ? (
+            {isReachedConfirming ? (
               <>
                 <CheckCircle2 size={16} />
                 <span>Place Reached</span>
+              </>
+            ) : isInPath ? (
+              <>
+                <CheckCircle2 size={16} />
+                <span>Mark Reached</span>
               </>
             ) : (
               <>

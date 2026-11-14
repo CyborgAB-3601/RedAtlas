@@ -1514,6 +1514,30 @@
   color: #FFFFFF;
 }
 
+/* After adding route: in black with "Mark Reached" */
+.add-to-route-btn.mark-reached-black {
+  background: #000000 !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+}
+
+.add-to-route-btn.mark-reached-black:hover {
+  background: #141115 !important;
+  border-color: rgba(255, 255, 255, 0.75) !important;
+  transform: translateY(-1px);
+}
+
+/* When clicked: becomes green with "Place Reached" */
+.add-to-route-btn.place-reached-green {
+  background: #10B981 !important;
+  border-color: #10B981 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.7), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+  transform: scale(1.02);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
 .more-options-container {
   position: relative;
   display: inline-flex;
