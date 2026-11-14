@@ -5451,6 +5451,79 @@
   letter-spacing: 0.02em;
 }
 
+/* 3D Gaussian Splat Surface Elevation Probe Tooltip */
+.terrain-elevation-probe-tooltip {
+  position: absolute;
+  z-index: 1380;
+  pointer-events: none;
+  background: rgba(12, 10, 10, 0.90);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 240, 255, 0.45);
+  border-radius: var(--radius-md);
+  padding: 7px 11px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6), 0 0 16px rgba(0, 240, 255, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 140px;
+  transform: translateY(0);
+  transition: opacity 0.15s ease;
+  user-select: none;
+}
+
+.probe-tooltip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 3px;
+}
+
+.probe-title {
+  font-size: 9px;
+  font-weight: 800;
+  color: #00F0FF;
+  letter-spacing: 0.08em;
+  font-family: var(--font-mono);
+}
+
+.probe-slope-badge {
+  font-size: 8.5px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+}
+
+.probe-tooltip-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 1px;
+}
+
+.probe-elev-val {
+  font-size: 14px;
+  font-weight: 800;
+  color: #FFFFFF;
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
+.probe-coords {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.6);
+  font-family: var(--font-mono);
+}
+
+.text-cyan {
+  color: #00F0FF !important;
+}
+
 .spin-slow {
   animation: spinSlow 8s linear infinite;
 }
