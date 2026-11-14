@@ -128,10 +128,6 @@ export default function DetailPanel({
     ]
   };
 
-  useEffect(() => {
-    setIsMarkedReached(false);
-  }, [activeLoc.id]);
-
   // Base site coordinates (Chryse Planitia)
   const [bLat, bLng] = parseLatLng(
     MARS_LOCATIONS.proposed_base.coords.lat,
