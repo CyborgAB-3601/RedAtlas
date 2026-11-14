@@ -57,34 +57,20 @@ export default function App() {
   // Default location: Proposed Base Site
   const [selectedLocation, setSelectedLocation] = useState(MARS_LOCATIONS.proposed_base);
 
-  // Custom pinned exploration sites created from 3D Gaussian Splats
-  const [pinnedLocations, setPinnedLocations] = useState(() => {
-    try {
-      const saved = localStorage.getItem('red_atlas_pinned_locations');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
-  });
+  // Custom pinned exploration sites created from 3D Gaussian Splats (In-memory session only; no localStorage persistence)
+  const [pinnedLocations, setPinnedLocations] = useState([]);
+  // Currently active focused pin to temporarily display on the 2D satellite map
+  const [activeSatellitePin, setActiveSatellitePin] = useState(null);
 
   const handleAddPinnedLocation = (newPin) => {
-    setPinnedLocations((prev) => {
-      const updated = [newPin, ...prev.filter((p) => p.id !== newPin.id)];
-      try {
-        localStorage.setItem('red_atlas_pinned_locations', JSON.stringify(updated));
-      } catch (e) {}
-      return updated;
-    });
+    setPinnedLocations((prev) => [newPin, ...prev.filter((p) => p.id !== newPin.id)]);
   };
 
   const handleRemovePinnedLocation = (pinId) => {
-    setPinnedLocations((prev) => {
-      const updated = prev.filter((p) => p.id !== pinId);
-      try {
-        localStorage.setItem('red_atlas_pinned_locations', JSON.stringify(updated));
-      } catch (e) {}
-      return updated;
-    });
+    setPinnedLocations((prev) => prev.filter((p) => p.id !== pinId));
+    if (activeSatellitePin?.id === pinId) {
+      setActiveSatellitePin(null);
+    }
   };
 
   const handleSelectLocation = (loc) => {
@@ -206,6 +192,7 @@ export default function App() {
               onRemovePin={handleRemovePinnedLocation}
               onNavigateToMap={(loc) => {
                 handleSelectLocation(loc);
+                setActiveSatellitePin(loc);
                 setActiveSection('Overview');
                 setActiveNav('Map');
                 setIsMapExpanded(false);
@@ -218,14 +205,20 @@ export default function App() {
         return (
           <MarsMap
             selectedLocation={selectedLocation}
-            onSelectLocation={handleSelectLocation}
+            onSelectLocation={(loc) => {
+              handleSelectLocation(loc);
+              // If user selects another landmark or location, clear temporary satellite pin
+              if (activeSatellitePin && loc.id !== activeSatellitePin.id) {
+                setActiveSatellitePin(null);
+              }
+            }}
             viewMode={viewMode}
             setViewMode={setViewMode}
             isExpanded={isMapExpanded}
             onToggleExpand={setIsMapExpanded}
             activeMission={activeMission}
             onOpenMissions={() => setIsMissionsOpen(true)}
-            pinnedLocations={pinnedLocations}
+            pinnedLocations={activeSatellitePin ? [activeSatellitePin] : []}
             onRemovePin={handleRemovePinnedLocation}
           />
         );
