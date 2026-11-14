@@ -1,0 +1,3630 @@
+/* ==========================================================================
+   REDATLAS MARS EVA HELMET HUD — AEROSPACE AVIONICS INTERFACE SPECIFICATION
+   Visual Design System: NASA Mission Control & Advanced Astronaut Visor HUD
+   ========================================================================== */
+
+.hud-root-viewport {
+  /* Complete Luminous Glassmorphism Design System */
+  --hud-glass-bg: rgba(255, 255, 255, 0.18);
+  --hud-glass-bg-subtle: rgba(255, 255, 255, 0.1);
+  --hud-glass-bg-elevated: rgba(255, 255, 255, 0.28);
+  --hud-glass-border: rgba(255, 255, 255, 0.45);
+  --hud-glass-border-subtle: rgba(255, 255, 255, 0.28);
+  --hud-glass-border-strong: rgba(255, 255, 255, 0.7);
+  --hud-glass-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+  --hud-glass-specular: inset 0 1px 1px rgba(255, 255, 255, 0.65);
+  --hud-glass-blur: blur(28px) saturate(170%);
+  --hud-glass-blur-heavy: blur(40px) saturate(180%);
+
+  /* Global glass token aliases */
+  --hud-bg-panel: rgba(255, 255, 255, 0.18);
+  --hud-bg-panel-solid: rgba(255, 255, 255, 0.28);
+  --hud-bg-surface: rgba(255, 255, 255, 0.14);
+  --hud-bg-hover: rgba(255, 255, 255, 0.28);
+
+  --hud-border-subtle: rgba(255, 255, 255, 0.4);
+  --hud-border-cyan: rgba(0, 240, 255, 0.5);
+  --hud-border-strong: rgba(245, 158, 11, 0.75);
+
+  --accent-amber: #f59e0b;
+  --accent-amber-bright: #fbbf24;
+  --accent-cyan: #00f0ff;
+  --accent-cyan-bright: #38bdf8;
+  
+  --status-success: #10b981;
+  --status-warning: #f59e0b;
+  --status-danger: #ef4444;
+
+  --text-white: #ffffff;
+  --text-muted: #e2e8f0;
+  --text-dim: #cbd5e1;
+
+  --font-mono: 'JetBrains Mono', 'Share Tech Mono', monospace;
+  --font-display: 'Chakra Petch', 'Orbitron', monospace;
+  --font-body: 'Rajdhani', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Reset & Viewport Constraints */
+.hud-root-viewport * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.hud-root-viewport, .hud-root-viewport {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #040608;
+  color: var(--text-white);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+
+/* ================= 1. ROOT VIEWPORT & CAMERA BACKGROUND ================= */
+.hud-root-viewport {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.hud-root-viewport .hud-camera-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  overflow: hidden;
+  background-color: #040608;
+}
+
+.hud-root-viewport .camera-feed-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hud-root-viewport .hud-video-stream,
+.hud-root-viewport .hud-sim-canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ================= 1.2 SPACESUIT HELMET TRANSLUCENT GREYISH VIGNETTE ================= */
+.hud-root-viewport .hud-visor-perimeter {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 78% 68% at 50% 50%,
+    rgba(0, 0, 0, 0) 52%,
+    rgba(100, 116, 139, 0.05) 70%,
+    rgba(71, 85, 105, 0.18) 84%,
+    rgba(51, 65, 85, 0.38) 94%,
+    rgba(30, 41, 59, 0.6) 100%
+  );
+  box-shadow: 
+    inset 0 0 100px rgba(51, 65, 85, 0.3),
+    inset 0 0 35px rgba(100, 116, 139, 0.25);
+  z-index: 4;
+}
+
+/* Top bar glassmorphic status badges */
+.hud-root-viewport .hud-top-status-pills {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud-root-viewport .unobtrusive-cam-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.1) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: #ffffff;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  transition: all 0.2s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.6);
+}
+
+.hud-root-viewport .unobtrusive-cam-pill:hover {
+  border-color: rgba(255, 255, 255, 0.75);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.18) 100%);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.8);
+  transform: translateY(-1px);
+}
+
+.hud-root-viewport .unobtrusive-cam-pill.online .cam-status-dot {
+  background-color: var(--status-success);
+  box-shadow: 0 0 10px var(--status-success);
+}
+
+.hud-root-viewport .cam-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--accent-amber);
+  border: 1px solid #ffffff;
+}
+
+.hud-root-viewport .cam-name-label {
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.05em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.hud-root-viewport .pill-cam-icon {
+  color: var(--accent-amber);
+}
+
+.hud-root-viewport .pill-settings-icon {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Top Left Quick System Controls (Calibration & Camera Shortcuts) */
+.hud-root-viewport .hud-top-left-shortcuts {
+  position: absolute;
+  top: 14px;
+  left: 18px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud-root-viewport .quick-hud-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.1) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: #ffffff;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  transition: all 0.2s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.6);
+}
+
+.hud-root-viewport .quick-hud-pill:hover {
+  border-color: rgba(255, 255, 255, 0.75);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.18) 100%);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.8);
+  transform: translateY(-1px);
+}
+
+/* Camera Disconnected Card - Glassmorphism */
+.hud-root-viewport .camera-unavailable-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.12) 100%);
+  border: 1.5px solid rgba(239, 68, 68, 0.6);
+  border-radius: 20px;
+  padding: 24px 34px;
+  text-align: center;
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35), inset 0 1px 2px rgba(255, 255, 255, 0.6);
+}
+
+.hud-root-viewport .unavailable-title {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--status-danger);
+  letter-spacing: 0.08em;
+}
+
+.hud-root-viewport .unavailable-desc {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.hud-root-viewport .unavailable-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+/* ================= 1.5 VISOR HELMET FRAME & CANOPY OVERLAY ================= */
+.hud-root-viewport .hud-visor-helmet-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 6;
+  overflow: hidden;
+  perspective: 1200px;
+}
+
+.hud-root-viewport .helmet-bezel-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.15));
+}
+
+/* ================= 2. MAIN HUD OVERLAY UI ================= */
+.hud-root-viewport .hud-interface-overlay {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px 64px 32px 64px;
+  pointer-events: none;
+}
+
+.hud-root-viewport .hud-panel,
+.hud-root-viewport .hud-top-left-group,
+.hud-root-viewport .hud-mission-timer-center,
+.hud-root-viewport .hud-top-right-group,
+.hud-root-viewport .hud-location-card-container,
+.hud-root-viewport .hud-mars-global-card,
+.hud-root-viewport .hud-floating-dock-container,
+.hud-root-viewport .hud-modal-panel,
+.hud-root-viewport .world-beacon,
+.hud-root-viewport .center-target-reticle,
+.hud-root-viewport .hud-alert-banner,
+.hud-root-viewport .unobtrusive-cam-pill,
+.hud-root-viewport .quick-hud-pill {
+  pointer-events: auto;
+}
+
+/* ================= TOP SECTION LAYOUT ================= */
+.hud-root-viewport .hud-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+  padding-top: 10px;
+}
+
+/* ================= REGION A – TOP LEFT: SUIT STATUS & CONSUMABLES ================= */
+.hud-root-viewport .hud-top-left-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.hud-root-viewport .hud-top-left-group:hover {
+  transform: translateY(-1px);
+}
+
+.hud-root-viewport .suit-panel-reg-marks {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(245, 158, 11, 0.75);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+  margin-left: 20px;
+}
+
+.hud-root-viewport .reg-bracket {
+  color: rgba(245, 158, 11, 0.5);
+}
+
+.hud-root-viewport .suit-hud-card-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.hud-root-viewport .suit-telemetry-glass-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 16px;
+  border: 1.8px solid rgba(245, 158, 11, 0.7);
+  border-radius: 18px;
+  background: rgba(20, 14, 10, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 0 18px rgba(245, 158, 11, 0.2), inset 0 0 16px rgba(245, 158, 11, 0.08);
+  transition: all 0.2s ease;
+}
+
+.hud-root-viewport .suit-telemetry-glass-card:hover {
+  border-color: #fbbf24;
+  box-shadow: 0 0 24px rgba(251, 191, 36, 0.45);
+}
+
+.hud-root-viewport .hologram-astronaut-container {
+  width: 58px;
+  height: 92px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hud-root-viewport .hologram-astronaut-svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.7));
+}
+
+.hud-root-viewport .suit-temperatures-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hud-root-viewport .suit-temp-row {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.hud-root-viewport .temp-numeric {
+  font-family: var(--font-display), monospace;
+  font-size: 24px;
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 0 0 10px rgba(255, 157, 0, 0.8);
+  line-height: 1;
+}
+
+.hud-root-viewport .temp-unit {
+  font-family: var(--font-display), monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.hud-root-viewport .suit-gauges-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hud-root-viewport .curved-gauge-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud-root-viewport .curved-gauge-track {
+  width: 110px;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 9999px;
+  overflow: hidden;
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.6);
+}
+
+.hud-root-viewport .curved-gauge-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}
+
+.hud-root-viewport .curved-gauge-fill.fill-o2 {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  box-shadow: 0 0 8px #f59e0b;
+}
+
+.hud-root-viewport .curved-gauge-fill.fill-co2 {
+  background: linear-gradient(90deg, #f97316, #fb923c);
+  box-shadow: 0 0 8px #f97316;
+}
+
+.hud-root-viewport .curved-gauge-label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 800;
+  color: #f59e0b;
+  letter-spacing: 0.05em;
+  min-width: 26px;
+}
+
+/* ================= REGION B – TOP CENTER: EVA MISSION TIMER ================= */
+.hud-root-viewport .hud-mission-timer-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  margin-top: 2px;
+}
+
+.hud-root-viewport .eva-canopy-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  padding: 4px 18px;
+}
+
+.hud-root-viewport .eva-digital-timer-value {
+  font-family: 'Share Tech Mono', 'Chakra Petch', monospace;
+  font-size: 44px;
+  font-weight: 800;
+  color: #ff9d00;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-shadow: 0 0 14px rgba(255, 157, 0, 0.95), 0 0 28px rgba(255, 140, 0, 0.5);
+}
+
+.hud-root-viewport .eva-time-sublabel {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  color: #fbbf24;
+  margin-top: 5px;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.7);
+  text-align: center;
+}
+
+.hud-root-viewport .eva-timer-hover-controls {
+  position: absolute;
+  bottom: -22px;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.hud-root-viewport .eva-canopy-box:hover .eva-timer-hover-controls {
+  opacity: 1;
+}
+
+.hud-root-viewport .timer-control-pill {
+  background: rgba(10, 14, 20, 0.85);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 3px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.hud-root-viewport .timer-control-pill:hover {
+  background: #f59e0b;
+  color: #000;
+}
+
+/* ================= REGION C – TOP RIGHT: CDR ADAMS & BIOMETRICS ================= */
+.hud-root-viewport .hud-top-right-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.hud-root-viewport .hud-top-right-group:hover {
+  transform: translateY(-1px);
+}
+
+.hud-root-viewport .cdr-header-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.hud-root-viewport .cdr-triangle {
+  color: #f59e0b;
+  font-size: 9px;
+  text-shadow: 0 0 6px #f59e0b;
+}
+
+.hud-root-viewport .cdr-name {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: #f59e0b;
+  letter-spacing: 0.12em;
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.7);
+}
+
+.hud-root-viewport .cdr-gauges-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.hud-root-viewport .cdr-gauge-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.hud-root-viewport .cdr-gauge-label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 800;
+  color: #f59e0b;
+  min-width: 26px;
+  text-align: right;
+}
+
+.hud-root-viewport .cdr-gauge-track {
+  width: 140px;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 9999px;
+  overflow: hidden;
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.6);
+}
+
+.hud-root-viewport .cdr-gauge-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}
+
+.hud-root-viewport .cdr-gauge-fill.fill-o2 {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  box-shadow: 0 0 8px #f59e0b;
+}
+
+.hud-root-viewport .cdr-gauge-fill.fill-h2o {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  box-shadow: 0 0 8px #f59e0b;
+}
+
+.hud-root-viewport .cdr-ecg-container {
+  width: 180px;
+  height: 36px;
+  margin: 3px 0;
+}
+
+.hud-root-viewport .cdr-ecg-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.hud-root-viewport .cdr-heart-rate-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  width: 180px;
+  margin-top: 2px;
+}
+
+.hud-root-viewport .bpm-group {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.hud-root-viewport .bpm-value {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  color: #f59e0b;
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.8);
+  line-height: 1;
+}
+
+.hud-root-viewport .bpm-unit {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.hud-root-viewport .bpm-scale {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(245, 158, 11, 0.65);
+}
+
+.hud-root-viewport .cdr-accent-underline {
+  width: 180px;
+  height: 2px;
+  background: rgba(245, 158, 11, 0.55);
+  margin-top: 6px;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+  border-radius: 1px;
+}
+
+/* ================= BOTTOM ROW: LOCATION CARD & GLOBAL MAP ================= */
+.hud-root-viewport .hud-bottom-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  width: 100%;
+  padding: 0 30px 48px 30px;
+  position: relative;
+}
+
+/* ================= REGION D – LOWER LEFT: LOCATION INFORMATION ================= */
+.hud-root-viewport .hud-location-card-container {
+  width: 385px;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hud-root-viewport .hud-location-card-container:hover {
+  transform: translateY(-2px);
+}
+
+.hud-root-viewport .location-glass-card {
+  background: linear-gradient(180deg, rgba(245, 235, 230, 0.62) 0%, rgba(248, 192, 172, 0.82) 100%);
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  border: 1.2px solid rgba(255, 255, 255, 0.75);
+  border-radius: 22px;
+  padding: 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.38);
+  color: #111827;
+}
+
+.hud-root-viewport .location-card-top-row {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.hud-root-viewport .location-thumb-box {
+  width: 78px;
+  height: 78px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+.hud-root-viewport .location-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.hud-root-viewport .location-info-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hud-root-viewport .location-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.hud-root-viewport .location-card-title {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
+}
+
+.hud-root-viewport .location-bookmark-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  transition: transform 0.15s ease;
+}
+
+.hud-root-viewport .location-bookmark-btn:hover {
+  transform: scale(1.15);
+}
+
+.hud-root-viewport .location-coords-line {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #475569;
+  margin-top: 2px;
+}
+
+.hud-root-viewport .location-desc-snippet {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #334155;
+  margin: 4px 0 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.hud-root-viewport .location-destination-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #111111;
+  color: #ffffff;
+  border: none;
+  border-radius: 9999px;
+  padding: 6px 14px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  width: fit-content;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+}
+
+.hud-root-viewport .location-destination-pill:hover {
+  background: #252830;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+
+.hud-root-viewport .location-destination-pill.destination-locked {
+  background: #059669;
+}
+
+.hud-root-viewport .location-capsules-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.hud-root-viewport .location-spec-capsule {
+  background: rgba(255, 255, 255, 0.82);
+  border-radius: 12px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.hud-root-viewport .capsule-val-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hud-root-viewport .capsule-icon {
+  color: #111827;
+  flex-shrink: 0;
+}
+
+.hud-root-viewport .capsule-val {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-root-viewport .capsule-lbl {
+  font-size: 9px;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+/* ================= MARS GLOBAL VIEW: GLASSMORPHISM UPGRADE ================= */
+.hud-root-viewport .hud-mars-global-card {
+  width: 240px;
+  /* Translucent multi-stop gradient for realistic glass refraction */
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.14) 0%,
+    rgba(20, 26, 38, 0.45) 50%,
+    rgba(10, 14, 22, 0.65) 100%
+  );
+  /* High-refraction backdrop blur + color saturation boost */
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  
+  /* Specular rim lighting: brighter top and left bevel edges */
+  border: 1.2px solid rgba(255, 255, 255, 0.28);
+  border-top: 1.6px solid rgba(255, 255, 255, 0.55);
+  border-left: 1.3px solid rgba(255, 255, 255, 0.38);
+  border-radius: 20px;
+  
+  /* Dual-layer depth: external drop shadow + internal specular highlights */
+  box-shadow: 
+    0 16px 40px rgba(0, 0, 0, 0.45),
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.4),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.3);
+  
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.hud-root-viewport .hud-mars-global-card.expanded {
+  width: 400px;
+}
+
+.hud-root-viewport .hud-mars-global-card.full-screen {
+  position: fixed !important;
+  inset: 28px 36px 36px 36px !important;
+  width: auto !important;
+  height: auto !important;
+  z-index: 95 !important;
+  border-radius: 20px !important;
+  background: rgba(10, 13, 20, 0.92) !important;
+  backdrop-filter: blur(35px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(35px) saturate(180%) !important;
+  border: 1.5px solid rgba(0, 240, 255, 0.5) !important;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.85), inset 0 0 40px rgba(0, 240, 255, 0.1) !important;
+  animation: hudCardMaximize 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes hudCardMaximize {
+  from {
+    transform: scale(0.94);
+    opacity: 0.5;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Glass Header */
+.hud-root-viewport .mars-global-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 13px;
+  background: rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.hud-root-viewport .mars-global-title-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.hud-root-viewport .atlas-icon-box {
+  font-size: 13px;
+  filter: drop-shadow(0 0 6px rgba(0, 220, 255, 0.65));
+}
+
+.hud-root-viewport .header-chevron {
+  color: var(--text-muted);
+}
+
+.hud-root-viewport .mars-expand-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 5px;
+  transition: all 0.2s ease;
+}
+
+.hud-root-viewport .mars-expand-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.hud-root-viewport .mars-mode-dropdown {
+  background: rgba(20, 26, 38, 0.75);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 4px;
+}
+
+.hud-root-viewport .dropdown-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: #ffffff;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.hud-root-viewport .dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.hud-root-viewport .dropdown-item.active {
+  color: var(--accent-amber);
+  font-weight: 700;
+}
+
+.hud-root-viewport .active-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent-amber);
+}
+
+.hud-root-viewport .mars-viewport-container {
+  width: 100%;
+  position: relative;
+  flex: 1;
+  min-height: 125px;
+  overflow: hidden;
+}
+
+.hud-root-viewport .hud-mars-global-card.expanded .mars-viewport-container {
+  min-height: 240px;
+}
+
+.hud-root-viewport .hud-mars-global-card.full-screen .mars-viewport-container {
+  height: 100%;
+  min-height: 480px;
+}
+
+.hud-root-viewport .mars-leaflet-outer-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.hud-root-viewport .mars-canvas-viewport {
+  width: 100%;
+  height: 125px;
+  position: relative;
+  cursor: grab;
+}
+
+.hud-root-viewport .hud-mars-global-card.expanded .mars-canvas-viewport {
+  height: 240px;
+}
+
+.hud-root-viewport .hud-mars-global-card.full-screen .mars-canvas-viewport {
+  height: 100%;
+  min-height: 480px;
+}
+
+.hud-root-viewport .mars-canvas-viewport:active {
+  cursor: grabbing;
+}
+
+.hud-root-viewport .mars-3d-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Glass Scale Bar Footer */
+.hud-root-viewport .mars-scale-bar-footer {
+  padding: 8px 14px 10px 14px;
+  background: rgba(10, 14, 22, 0.45);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.hud-root-viewport .scale-track-line {
+  position: relative;
+  height: 14px;
+  width: 100%;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.hud-root-viewport .scale-tick {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hud-root-viewport .tick-mark {
+  width: 1px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.7);
+  margin-bottom: 2px;
+}
+
+.hud-root-viewport .tick-label {
+  font-size: 8.5px;
+  font-family: var(--font-mono);
+  color: rgba(255, 255, 255, 0.75);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.hud-root-viewport .scale-diamond-cursor {
+  position: absolute;
+  top: -7px;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 0 6px rgba(0, 220, 255, 0.9));
+}
+
+/* ================= 5. FLOATING WHITE NAVIGATION DOCK ================= */
+.hud-root-viewport .hud-floating-dock-container {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  pointer-events: auto;
+}
+
+.hud-root-viewport .hud-white-pill-dock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  border-radius: 9999px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.45);
+  padding: 6px 18px;
+}
+
+.hud-root-viewport .dock-pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #1e293b;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 9999px;
+  transition: all 0.18s ease;
+}
+
+.hud-root-viewport .dock-pill-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #0f172a;
+}
+
+.hud-root-viewport .dock-pill-btn.active {
+  color: #ea580c;
+  background: rgba(234, 88, 12, 0.1);
+}
+
+.hud-root-viewport .dock-pill-btn.active .dock-pill-icon {
+  color: #ea580c;
+}
+
+.hud-root-viewport .dock-pill-icon {
+  color: #475569;
+  transition: color 0.18s ease;
+}
+
+.hud-root-viewport .map-action-controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 5;
+}
+
+.hud-root-viewport .map-btn {
+  background: rgba(10, 14, 20, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-white);
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hud-root-viewport .map-btn:hover {
+  border-color: var(--accent-amber);
+  background: rgba(245, 158, 11, 0.2);
+}
+
+.hud-root-viewport .map-center-guide {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.hud-root-viewport .map-meta-footer {
+  position: absolute;
+  bottom: 6px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+
+.hud-root-viewport .map-scale-chip,
+.hud-root-viewport .map-coordinates-chip {
+  background: rgba(6, 8, 12, 0.85);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.hud-root-viewport .scale-bar-line {
+  display: inline-block;
+  width: 24px;
+  height: 2px;
+  background: #ffffff;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+/* ================= 4. CENTER TARGETING RETICLE ================= */
+.hud-root-viewport .hud-reticle-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 15;
+}
+
+.hud-root-viewport .reticle-heading-indicator {
+  position: absolute;
+  top: 110px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(10, 14, 20, 0.75);
+  border: 1px solid var(--hud-border-subtle);
+  padding: 3px 10px;
+  border-radius: 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  backdrop-filter: blur(8px);
+}
+
+.hud-root-viewport .heading-degrees {
+  font-weight: 800;
+  color: var(--accent-amber-bright);
+}
+
+.hud-root-viewport .heading-cardinal {
+  color: var(--accent-cyan);
+  font-weight: 700;
+}
+
+.hud-root-viewport .heading-separator {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.hud-root-viewport .heading-pitch {
+  color: var(--text-dim);
+}
+
+/* Center Reticle Point & Brackets */
+.hud-root-viewport .center-target-reticle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 56px;
+  height: 56px;
+  transform: translate(-50%, -50%);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hud-root-viewport .reticle-center-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  transform: translate(-50%, -50%);
+  background-color: var(--accent-amber);
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--accent-amber);
+}
+
+.hud-root-viewport .reticle-bracket {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-color: rgba(245, 158, 11, 0.45);
+  border-style: solid;
+  transition: all 0.2s ease;
+}
+
+.hud-root-viewport .tl { top: 6px; left: 6px; border-width: 1.5px 0 0 1.5px; }
+.hud-root-viewport .tr { top: 6px; right: 6px; border-width: 1.5px 1.5px 0 0; }
+.hud-root-viewport .bl { bottom: 6px; left: 6px; border-width: 0 0 1.5px 1.5px; }
+.hud-root-viewport .br { bottom: 6px; right: 6px; border-width: 0 1.5px 1.5px 0; }
+
+.hud-root-viewport .target-locked {
+  transform: translate(-50%, -50%) scale(1.12);
+}
+
+.hud-root-viewport .target-locked .reticle-bracket {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.5);
+}
+
+.hud-root-viewport .target-locked .reticle-center-dot {
+  background-color: var(--accent-cyan);
+  box-shadow: 0 0 8px var(--accent-cyan);
+}
+
+.hud-root-viewport .reticle-dwell-circle {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: 60px;
+  height: 60px;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.hud-root-viewport .reticle-target-badge {
+  position: absolute;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 14, 20, 0.92);
+  border: 1px solid var(--accent-cyan);
+  border-radius: 6px;
+  padding: 5px 10px;
+  white-space: nowrap;
+  text-align: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+}
+
+.hud-root-viewport .target-badge-status {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  letter-spacing: 0.1em;
+}
+
+.hud-root-viewport .target-badge-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.hud-root-viewport .target-badge-prompt {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+/* World Anchored Beacons */
+.hud-root-viewport .world-beacons-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.hud-root-viewport .world-beacon {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: transform 0.15s ease-out;
+}
+
+.hud-root-viewport .beacon-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--accent-amber);
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 0 8px var(--accent-amber);
+}
+
+.hud-root-viewport .beacon-card {
+  background: rgba(10, 14, 20, 0.88);
+  border: 1px solid var(--hud-border-subtle);
+  border-radius: 6px;
+  padding: 3px 8px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  backdrop-filter: blur(8px);
+}
+
+.hud-root-viewport .beacon-type {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--accent-amber);
+}
+
+.hud-root-viewport .beacon-name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.hud-root-viewport .beacon-dist {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--accent-cyan);
+}
+
+.hud-root-viewport .world-beacon.targeted .beacon-card {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+}
+
+/* ================= 5. FLOATING BOTTOM NAVIGATION DOCK ================= */
+.hud-root-viewport .hud-navigation-dock-container {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  pointer-events: auto;
+}
+
+.hud-root-viewport .hud-navigation-dock {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(10, 14, 20, 0.85);
+  border: 1px solid var(--hud-border-subtle);
+  border-radius: 18px;
+  padding: 5px 10px;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+}
+
+.hud-root-viewport .dock-tool-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  padding: 7px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  min-width: 66px;
+}
+
+.hud-root-viewport .dock-tool-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+.hud-root-viewport .dock-tool-item.active {
+  background: rgba(0, 240, 255, 0.12);
+  border-color: rgba(0, 240, 255, 0.4);
+  color: #ffffff;
+}
+
+.hud-root-viewport .dock-icon-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hud-root-viewport .dock-hotkey {
+  position: absolute;
+  top: -5px;
+  right: -8px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--accent-amber);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+.hud-root-viewport .dock-label {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.hud-root-viewport .dock-active-glow {
+  position: absolute;
+  bottom: 0;
+  left: 25%;
+  width: 50%;
+  height: 2px;
+  background-color: var(--accent-cyan);
+  border-radius: 2px;
+  box-shadow: 0 0 6px var(--accent-cyan);
+}
+
+/* ================= ACTION BUTTONS (MODALS, CARDS & FOOTER) ================= */
+.hud-root-viewport .hud-btn,
+.hud-root-viewport .hud-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+.hud-root-viewport .btn-primary-dest,
+.hud-root-viewport .btn-primary-action {
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  color: #050302 !important;
+  border-color: #fbbf24;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.4);
+}
+
+.hud-root-viewport .btn-primary-dest:hover,
+.hud-root-viewport .btn-primary-action:hover {
+  background: linear-gradient(135deg, #fbbf24, #fef08a);
+  box-shadow: 0 0 24px rgba(245, 158, 11, 0.7);
+  transform: translateY(-1px);
+}
+
+.hud-root-viewport .btn-secondary,
+.hud-root-viewport .btn-secondary-action {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--text-white) !important;
+  backdrop-filter: blur(8px);
+}
+
+.hud-root-viewport .btn-secondary:hover,
+.hud-root-viewport .btn-secondary-action:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: var(--accent-amber);
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+
+.hud-root-viewport .btn-active-dest {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: var(--status-success);
+  color: var(--status-success) !important;
+}
+
+.hud-root-viewport .btn-confirm-dest {
+  background: var(--status-danger);
+  color: #ffffff !important;
+  border-color: #f87171;
+  animation: pulse-dot 1.2s infinite;
+}
+
+/* Specific styling for Camera Setup Footer & Buttons */
+.hud-root-viewport .camera-setup-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 16px 20px 8px 20px;
+  margin-top: 14px;
+}
+
+.hud-root-viewport .camera-setup-footer .hud-action-btn {
+  padding: 11px 20px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+.hud-root-viewport .camera-setup-footer .btn-mars-sim {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #ffffff !important;
+}
+
+.hud-root-viewport .camera-setup-footer .btn-mars-sim:hover {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: var(--accent-amber-bright);
+}
+
+.hud-root-viewport .camera-setup-footer .btn-confirm-headcam {
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  color: #050302 !important;
+  font-weight: 800;
+  box-shadow: 0 2px 16px rgba(245, 158, 11, 0.45);
+}
+
+.hud-root-viewport .camera-setup-footer .btn-confirm-headcam:hover {
+  background: linear-gradient(135deg, #fbbf24, #fef08a);
+  box-shadow: 0 4px 22px rgba(245, 158, 11, 0.7);
+  transform: translateY(-1px);
+}
+
+.hud-root-viewport .btn-icon-amber {
+  color: var(--accent-amber);
+}
+
+.hud-root-viewport .btn-icon-check {
+  color: #050302;
+}
+
+/* ================= 6. SYSTEM NOTIFICATIONS & ALERTS (SUPPRESSED) ================= */
+.hud-root-viewport .hud-alerts-container {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+.hud-root-viewport .hud-alert-banner {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+@keyframes alert-pop {
+  0% { transform: translateY(-8px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+.hud-root-viewport .alert-info {
+  background: rgba(10, 14, 20, 0.88);
+  border: 1px solid var(--accent-amber);
+  color: var(--accent-amber-bright);
+}
+
+.hud-root-viewport .alert-warning {
+  background: rgba(20, 14, 10, 0.9);
+  border: 1px solid var(--status-warning);
+  color: #fbbf24;
+}
+
+.hud-root-viewport .alert-critical {
+  background: rgba(25, 8, 8, 0.92);
+  border: 1px solid var(--status-danger);
+  color: #fca5a5;
+}
+
+.hud-root-viewport .alert-success {
+  background: rgba(8, 20, 14, 0.9);
+  border: 1px solid var(--status-success);
+  color: #86efac;
+}
+
+/* Hotkeys help pill */
+.hud-root-viewport .hotkeys-helper-pill {
+  position: absolute;
+  bottom: 22px;
+  right: 24px;
+  z-index: 25;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  background: rgba(10, 14, 20, 0.6);
+  padding: 3px 8px;
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+/* Modal Animations & Utilities */
+@keyframes pulse-dot {
+  0% { transform: scale(0.95); opacity: 0.7; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.7; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive Scaling for smaller / varying aspect screens */
+@media (max-width: 1400px) {
+  .hud-root-viewport .suit-telemetry-panel,
+  .hud-root-viewport .astronaut-biometrics-panel {
+    width: 270px;
+  }
+  .hud-root-viewport .mars-global-map-panel {
+    width: 290px;
+    height: 250px;
+  }
+  .hud-root-viewport .location-info-panel {
+    width: 320px;
+  }
+  .hud-root-viewport .dock-tool-item {
+    padding: 6px 10px;
+    min-width: 58px;
+  }
+  .hud-root-viewport .dock-label {
+    font-size: 11px;
+  }
+}
+
+
+/* ==========================================================================
+   MODAL & DRAWER INTERFACES (Camera Setup, Calibration, Tool Drawers, Dossier)
+   ========================================================================== */
+
+.hud-root-viewport .hud-modal-backdrop,
+.hud-root-viewport .hud-tool-drawer-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(10, 16, 26, 0.45);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hud-root-viewport .hud-modal-panel,
+.hud-root-viewport .hud-tool-drawer {
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(20, 26, 38, 0.6) 50%,
+    rgba(10, 14, 22, 0.8) 100%
+  );
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border: 1.4px solid rgba(255, 255, 255, 0.28);
+  border-top: 1.8px solid rgba(255, 255, 255, 0.55);
+  border-left: 1.4px solid rgba(255, 255, 255, 0.38);
+  border-radius: 22px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 
+    0 24px 60px rgba(0, 0, 0, 0.5),
+    inset 0 1px 2px rgba(255, 255, 255, 0.4),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.3);
+  animation: modal-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modal-enter {
+  0% { transform: scale(0.97); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.hud-root-viewport .camera-setup-modal {
+  width: 820px;
+  max-width: 90vw;
+  max-height: 85vh;
+}
+
+.hud-root-viewport .calibration-modal {
+  width: 620px;
+  max-width: 90vw;
+}
+
+.hud-root-viewport .location-details-modal {
+  width: 760px;
+  max-width: 90vw;
+  max-height: 85vh;
+}
+
+.hud-root-viewport .hud-tool-drawer {
+  width: 800px;
+  max-width: 90vw;
+  max-height: 80vh;
+}
+
+.hud-root-viewport .modal-header,
+.hud-root-viewport .drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.hud-root-viewport .modal-title-wrap,
+.hud-root-viewport .drawer-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud-root-viewport .modal-title,
+.hud-root-viewport .drawer-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--accent-amber);
+}
+
+.hud-root-viewport .drawer-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+.hud-root-viewport .modal-close-btn,
+.hud-root-viewport .drawer-close-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-muted);
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.hud-root-viewport .modal-close-btn:hover,
+.hud-root-viewport .drawer-close-btn:hover {
+  border-color: var(--status-danger);
+  color: #ffffff;
+}
+
+.hud-root-viewport .modal-body-scroll,
+.hud-root-viewport .drawer-content-scroll,
+.hud-root-viewport .modal-body-content {
+  padding: 18px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Custom Scrollbars */
+.hud-root-viewport .modal-body-scroll::-webkit-scrollbar,
+.hud-root-viewport .drawer-content-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.hud-root-viewport .modal-body-scroll::-webkit-scrollbar-track,
+.hud-root-viewport .drawer-content-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+.hud-root-viewport .modal-body-scroll::-webkit-scrollbar-thumb,
+.hud-root-viewport .drawer-content-scroll::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, 0.3);
+  border-radius: 3px;
+}
+
+/* Camera Setup Layout */
+.hud-root-viewport .camera-setup-intro {
+  background: rgba(245, 158, 11, 0.05);
+  border-left: 2px solid var(--accent-amber);
+  padding: 8px 12px;
+  border-radius: 0 6px 6px 0;
+  margin-bottom: 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.hud-root-viewport .camera-alert-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--status-danger);
+  color: #fca5a5;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.hud-root-viewport .camera-setup-layout {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.hud-root-viewport .camera-config-col,
+.hud-root-viewport .camera-preview-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.hud-root-viewport .input-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent-amber);
+  margin-bottom: 6px;
+  letter-spacing: 0.05em;
+}
+
+.hud-root-viewport .label-with-refresh {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.hud-root-viewport .refresh-dev-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-white);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.hud-root-viewport .refresh-dev-btn:hover {
+  border-color: var(--accent-amber);
+}
+
+.hud-root-viewport .devices-selector-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 150px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 6px;
+}
+
+.hud-root-viewport .device-radio-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hud-root-viewport .device-radio-card:hover {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.hud-root-viewport .device-radio-card.selected {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: var(--accent-amber);
+}
+
+.hud-root-viewport .device-card-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.hud-root-viewport .device-radio-circle {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent-amber);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hud-root-viewport .device-radio-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: var(--accent-amber);
+}
+
+.hud-root-viewport .device-meta {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hud-root-viewport .device-name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-root-viewport .device-id-code {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text-dim);
+}
+
+.hud-root-viewport .device-badge {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.hud-root-viewport .device-badge.external-usb {
+  background: rgba(16, 185, 129, 0.15);
+  color: #86efac;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.hud-root-viewport .device-badge.hdmi-capture {
+  background: rgba(0, 240, 255, 0.15);
+  color: #7dd3fc;
+  border: 1px solid rgba(0, 240, 255, 0.3);
+}
+
+.hud-root-viewport .device-badge.integrated {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-dim);
+}
+
+.hud-root-viewport .device-badge.virtual-cam {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.hud-root-viewport .settings-row-pair {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.hud-root-viewport .hud-select {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #ffffff;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  outline: none;
+}
+
+.hud-root-viewport .orientation-controls-box {
+  background: var(--hud-bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+.hud-root-viewport .orientation-buttons-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.hud-root-viewport .orient-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-white);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.hud-root-viewport .orient-btn.active {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: var(--accent-amber);
+}
+
+.hud-root-viewport .sliders-subgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.hud-root-viewport .slider-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+
+.hud-root-viewport .hud-range-slider {
+  width: 100%;
+  accent-color: var(--accent-amber);
+}
+
+.hud-root-viewport .preview-viewport-box {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  background: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.hud-root-viewport .preview-video-element {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.hud-root-viewport .preview-status-chip {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.hud-root-viewport .status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+.hud-root-viewport .dot-active { background: var(--status-success); }
+.hud-root-viewport .dot-inactive { background: var(--status-danger); }
+
+.hud-root-viewport .preview-res-tag {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--accent-cyan);
+}
+
+.hud-root-viewport .preview-hint-text {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+
+
+
+/* Tool Drawers Styling */
+.hud-root-viewport .wp-create-form {
+  background: var(--hud-bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+
+.hud-root-viewport .form-subtitle {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent-amber);
+  margin-bottom: 6px;
+}
+
+.hud-root-viewport .form-row {
+  display: flex;
+  gap: 6px;
+}
+
+.hud-root-viewport .hud-input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #ffffff;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  outline: none;
+}
+
+.hud-root-viewport .hud-submit-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent-amber);
+  color: #000000;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.hud-root-viewport .section-label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-amber);
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+.hud-root-viewport .wp-items-grid,
+.hud-root-viewport .layers-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.hud-root-viewport .wp-card,
+.hud-root-viewport .layer-item-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--hud-bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.hud-root-viewport .wp-name,
+.hud-root-viewport .layer-name {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.hud-root-viewport .wp-coords-line,
+.hud-root-viewport .layer-desc {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.hud-root-viewport .wp-card-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.hud-root-viewport .wp-action-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-white);
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.hud-root-viewport .routes-list,
+.hud-root-viewport .rover-cards-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hud-root-viewport .route-card,
+.hud-root-viewport .rover-card {
+  background: var(--hud-bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.hud-root-viewport .route-card-header,
+.hud-root-viewport .rover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.hud-root-viewport .route-name,
+.hud-root-viewport .rover-name {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.hud-root-viewport .route-metrics-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+}
+
+.hud-root-viewport .rt-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text-dim);
+}
+
+.hud-root-viewport .rt-val {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hud-root-viewport .cp-steps {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.hud-root-viewport .cp-step {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+/* Dossier Modal Hero */
+.hud-root-viewport .dossier-hero {
+  position: relative;
+  width: 100%;
+  height: 160px;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.hud-root-viewport .dossier-hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hud-root-viewport .dossier-hero-scrim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(0deg, rgba(14, 18, 25, 0.95) 0%, transparent 60%);
+}
+
+.hud-root-viewport .dossier-hero-caption {
+  position: absolute;
+  bottom: 10px;
+  left: 14px;
+}
+
+.hud-root-viewport .dossier-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.hud-root-viewport .dossier-specs-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  background: var(--hud-bg-surface);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.hud-root-viewport .dossier-section {
+  background: var(--hud-bg-surface);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+
+.hud-root-viewport .dossier-section h4 {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-amber);
+  margin-bottom: 4px;
+}
+
+.hud-root-viewport .sec-desc-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.hud-root-viewport .sec-grid {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.hud-root-viewport .sec-pill {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+
+/* ================= HAND GESTURE CONTROL & VIRTUAL CURSOR (FLOATING POINTER SUPPRESSED) ================= */
+.hud-root-viewport .hud-virtual-cursor {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+.hud-root-viewport .cursor-center-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #00f0ff;
+  box-shadow: 0 0 10px #00f0ff, 0 0 20px rgba(0, 240, 255, 0.8);
+  transition: all 0.15s ease;
+}
+
+.hud-root-viewport .hud-virtual-cursor.pinching .cursor-center-dot {
+  transform: scale(2.2);
+  background: #f59e0b;
+  box-shadow: 0 0 14px #f59e0b, 0 0 25px rgba(245, 158, 11, 0.9);
+}
+
+.hud-root-viewport .cursor-bracket {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-color: rgba(0, 240, 255, 0.85);
+  border-style: solid;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hud-root-viewport .hud-virtual-cursor.standby .cursor-bracket {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.hud-root-viewport .hud-virtual-cursor.pinching .cursor-bracket {
+  border-color: #f59e0b;
+  transform: scale(0.75);
+}
+
+.hud-root-viewport .cursor-bracket.tl { top: 0; left: 0; border-width: 2px 0 0 2px; border-top-left-radius: 2px; }
+.hud-root-viewport .cursor-bracket.tr { top: 0; right: 0; border-width: 2px 2px 0 0; border-top-right-radius: 2px; }
+.hud-root-viewport .cursor-bracket.bl { bottom: 0; left: 0; border-width: 0 0 2px 2px; border-bottom-left-radius: 2px; }
+.hud-root-viewport .cursor-bracket.br { bottom: 0; right: 0; border-width: 0 2px 2px 0; border-bottom-right-radius: 2px; }
+
+.hud-root-viewport .cursor-pinch-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid #f59e0b;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
+  pointer-events: none;
+}
+
+.hud-root-viewport .cursor-hold-progress-svg {
+  position: absolute;
+  inset: -8px;
+  width: 60px;
+  height: 60px;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.hud-root-viewport .cursor-gesture-tag {
+  position: absolute;
+  top: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 14, 22, 0.75);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: #00f0ff;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.7);
+}
+
+.hud-root-viewport .hud-virtual-cursor.overlay-focused .cursor-bracket {
+  border-color: #fbbf24;
+}
+
+.hud-root-viewport .hud-virtual-cursor.overlay-focused .cursor-center-dot {
+  background: #fbbf24;
+  box-shadow: 0 0 10px #fbbf24, 0 0 20px rgba(251, 191, 36, 0.8);
+}
+
+.hud-root-viewport .cursor-focus-mode-tag {
+  position: absolute;
+  bottom: 46px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(14, 22, 36, 0.9);
+  border: 1px solid rgba(245, 158, 11, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 800;
+  color: #fbbf24;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6), 0 0 8px rgba(245, 158, 11, 0.4);
+  text-shadow: 0 0 6px rgba(245, 158, 11, 0.7);
+  pointer-events: none;
+  animation: cursor-focus-pulse 2s infinite ease-in-out;
+}
+
+@keyframes cursor-focus-pulse {
+  0%, 100% {
+    border-color: rgba(245, 158, 11, 0.7);
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    border-color: rgba(245, 158, 11, 1);
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.8);
+  }
+}
+
+/* ================= GESTURE STATUS INDICATOR PILL ================= */
+.hud-root-viewport .hud-gesture-status-pill {
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.1) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 9999px;
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.6);
+  transition: all 0.25s ease;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.hud-root-viewport .hud-gesture-status-pill:hover {
+  border-color: rgba(255, 255, 255, 0.75);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.18) 100%);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.8);
+  transform: translateY(-1px);
+}
+
+.hud-root-viewport .hud-gesture-status-pill.active {
+  border-color: rgba(0, 240, 255, 0.6);
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.35), inset 0 1px 2px rgba(255, 255, 255, 0.7);
+}
+
+.hud-root-viewport .gesture-status-main-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: none;
+  border: none;
+  padding: 6px 12px;
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+
+.hud-root-viewport .gesture-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--text-muted);
+  border: 1px solid #ffffff;
+  transition: all 0.2s ease;
+}
+
+.hud-root-viewport .hud-gesture-status-pill.active .gesture-status-dot {
+  background-color: #00f0ff;
+  box-shadow: 0 0 10px #00f0ff;
+}
+
+.hud-root-viewport .gesture-active-tag {
+  background: rgba(0, 240, 255, 0.2);
+  border: 1px solid rgba(0, 240, 255, 0.5);
+  color: #00f0ff;
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.06em;
+  font-weight: 800;
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.8);
+}
+
+.hud-root-viewport .gesture-confidence-pct {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: var(--font-mono);
+}
+
+.hud-root-viewport .gesture-settings-btn {
+  background: none;
+  border: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 7px 10px;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.hud-root-viewport .gesture-settings-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ================= GESTURE ENGINE BADGE & CLUSTER ================= */
+.hud-root-viewport .hud-gesture-status-cluster {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud-root-viewport .gesture-engine-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 9999px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  transition: all 0.25s ease;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.hud-root-viewport .gesture-engine-badge:hover {
+  transform: translateY(-1px);
+}
+
+.hud-root-viewport .engine-python-badge {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.28) 0%, rgba(5, 150, 105, 0.15) 100%);
+  border: 1px solid rgba(52, 211, 153, 0.65);
+  color: #34d399;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+
+.hud-root-viewport .engine-python-badge:hover {
+  border-color: rgba(52, 211, 153, 0.9);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.6);
+}
+
+.hud-root-viewport .engine-browser-badge {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.08) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+
+.hud-root-viewport .engine-browser-badge:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.12) 100%);
+}
+
+.hud-root-viewport .engine-indicator-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.hud-root-viewport .dot-pulse-green {
+  background-color: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: pulse-green-glow 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse-green-glow {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.8);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    box-shadow: 0 0 0 5px rgba(16, 185, 129, 0);
+    opacity: 0.85;
+  }
+}
+
+.hud-root-viewport .dot-browser-amber {
+  background-color: #f59e0b;
+  box-shadow: 0 0 6px #f59e0b;
+}
+
+.hud-root-viewport .dot-offline-red {
+  background-color: #ef4444;
+  box-shadow: 0 0 6px #ef4444;
+}
+
+.hud-root-viewport .engine-badge-text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+/* ================= PYTHON SERVER STATUS IN SETTINGS ================= */
+.hud-root-viewport .badge-python-connected {
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(52, 211, 153, 0.5);
+  color: #34d399;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.hud-root-viewport .badge-python-offline {
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.hud-root-viewport .engine-mini-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.hud-root-viewport .border-accent-green {
+  border-color: rgba(52, 211, 153, 0.4) !important;
+}
+
+.hud-root-viewport .python-server-info-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.hud-root-viewport .server-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hud-root-viewport .server-detail-row .detail-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: var(--font-mono);
+}
+
+.hud-root-viewport .server-detail-row .detail-val {
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.hud-root-viewport .server-detail-row .val-connected {
+  color: #34d399;
+  font-weight: 700;
+}
+
+.hud-root-viewport .server-detail-row .val-offline {
+  color: #fca5a5;
+  font-weight: 700;
+}
+
+.hud-root-viewport .server-offline-instructions {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hud-root-viewport .server-offline-instructions .instruction-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #f59e0b;
+  letter-spacing: 0.04em;
+}
+
+.hud-root-viewport .server-offline-instructions .instruction-desc {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.hud-root-viewport .code-run-command-box {
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #00f0ff;
+  font-weight: 700;
+  display: inline-block;
+}
+
+.hud-root-viewport .server-offline-instructions .instruction-fallback-note {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.hud-root-viewport .server-connected-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 11px;
+  color: #34d399;
+}
+
+/* ================= 21-LANDMARK SKELETON CANVAS ================= */
+.hud-root-viewport .hud-gesture-debug-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9000;
+}
+
+/* ================= GESTURE SETTINGS MODAL ================= */
+.hud-root-viewport .gesture-settings-modal-container {
+  max-width: 760px;
+  width: 92%;
+}
+
+.hud-root-viewport .gesture-tab-pill-group {
+  display: flex;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.hud-root-viewport .tab-pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.hud-root-viewport .tab-pill-btn.active {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.hud-root-viewport .gesture-config-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hud-root-viewport .gesture-config-section {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.hud-root-viewport .section-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.hud-root-viewport .section-title {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #ffffff;
+}
+
+.hud-root-viewport .section-desc {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.45;
+  margin-bottom: 12px;
+}
+
+.hud-root-viewport .master-toggle-row {
+  display: flex;
+  gap: 10px;
+}
+
+.hud-root-viewport .status-badge {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 4px;
+  margin-left: auto;
+  letter-spacing: 0.06em;
+}
+
+.hud-root-viewport .badge-active {
+  background: rgba(0, 240, 255, 0.2);
+  border: 1px solid rgba(0, 240, 255, 0.5);
+  color: #00f0ff;
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.6);
+}
+
+.hud-root-viewport .badge-standby {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.hud-root-viewport .btn-debug-active {
+  background: rgba(245, 158, 11, 0.25) !important;
+  border-color: rgba(245, 158, 11, 0.6) !important;
+  color: #f59e0b !important;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.3) !important;
+}
+
+/* Gesture Toggles Grid */
+.hud-root-viewport .gesture-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.hud-root-viewport .gesture-toggle-card {
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.hud-root-viewport .gesture-toggle-card:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.hud-root-viewport .gesture-toggle-card.disabled {
+  opacity: 0.55;
+  filter: grayscale(0.6);
+}
+
+.hud-root-viewport .card-top-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.hud-root-viewport .card-top-row .icon-box {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #00f0ff;
+}
+
+.hud-root-viewport .gesture-card-title {
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #ffffff;
+  flex: 1;
+}
+
+.hud-root-viewport .status-switch {
+  width: 32px;
+  height: 18px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.15);
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+.hud-root-viewport .status-switch.switch-on {
+  background: #00f0ff;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+}
+
+.hud-root-viewport .switch-knob {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s ease;
+}
+
+.hud-root-viewport .status-switch.switch-on .switch-knob {
+  transform: translateX(14px);
+}
+
+.hud-root-viewport .card-action-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: #f59e0b;
+  margin-bottom: 4px;
+}
+
+.hud-root-viewport .card-rule-desc {
+  font-size: 9.5px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.35;
+}
+
+/* Gesture Field Guide Table */
+.hud-root-viewport .gesture-guide-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.hud-root-viewport .gesture-guide-table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  letter-spacing: 0.05em;
+}
+
+.hud-root-viewport .gesture-guide-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  vertical-align: middle;
+}
+
+.hud-root-viewport .gesture-guide-table tr:hover td {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.hud-root-viewport .guide-pill {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(0, 240, 255, 0.15);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  color: #00f0ff;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 10px;
+}
+
+.hud-root-viewport .footer-key-hint {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.hud-root-viewport .footer-key-hint strong {
+  color: #00f0ff;
+}
+
+
+/* ================= ZOOM IN / ZOOM OUT & GESTURE HOVER SYSTEM ================= */
+.hud-root-viewport .mars-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hud-root-viewport .mars-zoom-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 6px;
+  transition: all 0.2s ease;
+}
+
+.hud-root-viewport .mars-zoom-btn:hover {
+  background: rgba(0, 240, 255, 0.2);
+  border-color: rgba(0, 240, 255, 0.5);
+  color: #00f0ff;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.35);
+}
+
+.hud-root-viewport .hud-floating-zoom-control {
+  position: absolute;
+  bottom: 16px;
+  right: 255px;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(20, 26, 38, 0.6) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 9999px;
+  padding: 3px 6px;
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+}
+
+.hud-root-viewport .zoom-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.hud-root-viewport .zoom-btn:hover,
+.hud-root-viewport .zoom-btn.hud-gesture-hover {
+  background: rgba(0, 240, 255, 0.3);
+  border-color: rgba(0, 240, 255, 0.7);
+  color: #00f0ff;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+  transform: scale(1.1);
+}
+
+.hud-root-viewport .zoom-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  color: #00f0ff;
+  padding: 0 6px;
+  letter-spacing: 0.05em;
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+}
+
+.hud-root-viewport .zoom-reset-btn {
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  border-radius: 4px;
+  color: #f59e0b;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.hud-root-viewport .zoom-reset-btn:hover {
+  background: rgba(245, 158, 11, 0.4);
+  color: #ffffff;
+}
+
+.hud-root-viewport .hud-visor-mag-chip {
+  position: absolute;
+  top: 70px;
+  right: 28px;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(10, 14, 22, 0.75);
+  border: 1.5px solid rgba(0, 240, 255, 0.6);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  color: #00f0ff;
+  letter-spacing: 0.08em;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.35);
+  animation: pulse 2s infinite ease-in-out;
+}
+
+.hud-root-viewport .hud-visor-mag-chip .mag-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #00f0ff;
+  box-shadow: 0 0 8px #00f0ff;
+}
+
+.hud-root-viewport .hud-gesture-hover {
+  outline: 2px solid #00f0ff !important;
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.7) !important;
+  transform: scale(1.04) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+/* ================= NASA JPL MARS TREK LEAFLET INTEGRATION ================= */
+.hud-root-viewport .mars-tactical-header-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: #00f0ff;
+  letter-spacing: 0.05em;
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+}
+
+.hud-root-viewport .pulse-cyan {
+  color: #00f0ff;
+  animation: pulse 1.8s infinite ease-in-out;
+}
+
+.hud-root-viewport .mars-close-fullscreen-btn {
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  border-radius: 6px;
+  color: #fca5a5;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 6px;
+  transition: all 0.2s ease;
+}
+
+.hud-root-viewport .mars-close-fullscreen-btn:hover {
+  background: rgba(239, 68, 68, 0.4);
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
+/* Leaflet Container & Official NASA Tiles */
+.hud-root-viewport .mars-trek-leaflet-viewport {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+  background: #09080a !important;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.hud-root-viewport .mars-trek-leaflet-viewport .leaflet-container {
+  background: #09080a !important;
+  font-family: var(--font-mono);
+}
+
+.hud-root-viewport .mars-trek-official-tile {
+  filter: contrast(1.05) brightness(0.98);
+}
+
+/* Custom Leaflet Marker Wrapper */
+.hud-root-viewport .leaflet-marker-wrapper {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Proposed Base Site Marker (Chryse Planitia 14.6° N, 32.3° E) */
+.hud-root-viewport .base-site-marker {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.hud-root-viewport .base-static-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid #00f0ff;
+  pointer-events: none;
+}
+
+.hud-root-viewport .base-static-ring.inner {
+  width: 18px;
+  height: 18px;
+  border-color: rgba(0, 240, 255, 0.85);
+}
+
+.hud-root-viewport .base-static-ring.outer {
+  width: 28px;
+  height: 28px;
+  border: 1px dashed rgba(0, 240, 255, 0.55);
+}
+
+.hud-root-viewport .base-pulse-ring {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #00f0ff;
+  animation: basePulseRing 2.2s infinite ease-out;
+  pointer-events: none;
+}
+
+@keyframes basePulseRing {
+  0% {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+.hud-root-viewport .base-core-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 10px #00f0ff, 0 0 20px #00f0ff;
+  z-index: 2;
+}
+
+.hud-root-viewport .base-callout-bubble {
+  position: absolute;
+  left: 38px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(10, 14, 22, 0.88);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(0, 240, 255, 0.6);
+  border-radius: 8px;
+  padding: 4px 9px;
+  white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.65);
+  pointer-events: auto;
+  z-index: 5;
+}
+
+.hud-root-viewport .base-flag-circle {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(0, 240, 255, 0.2);
+  border: 1px solid #00f0ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #00f0ff;
+}
+
+.hud-root-viewport .base-info-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.hud-root-viewport .base-title-text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.04em;
+}
+
+.hud-root-viewport .base-coords-text {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: #00f0ff;
+  font-weight: 600;
+}
+
+/* Standard Waypoint Markers (Olympus Mons, Jezero, Gale, Valles Marineris) */
+.hud-root-viewport .waypoint-marker.standard-marker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.hud-root-viewport .waypoint-dot-outer {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(245, 158, 11, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(245, 158, 11, 0.25);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+}
+
+.hud-root-viewport .waypoint-dot-inner {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 6px #f59e0b;
+}
+
+.hud-root-viewport .waypoint-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(10, 14, 22, 0.8);
+  backdrop-filter: blur(8px);
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Animated Route Line Connecting Chryse Base to Outposts */
+.hud-root-viewport .leaflet-route-animated {
+  stroke-dasharray: 6, 8;
+  animation: hudRouteLinePulse 25s linear infinite;
+  filter: drop-shadow(0 0 6px #00f0ff);
+}
+
+@keyframes hudRouteLinePulse {
+  to {
+    stroke-dashoffset: -1000;
+  }
+}
+
+/* Full-Screen Tactical HUD Overlay */
+.hud-root-viewport .mars-fullscreen-tactical-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.hud-root-viewport .crosshair-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(0, 240, 255, 0.7);
+  filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.85));
+}
+
+.hud-root-viewport .tactical-reticle {
+  animation: rotateSlow 60s linear infinite;
+}
+
+@keyframes rotateSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.hud-root-viewport .tactical-hud-corner {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(10, 14, 22, 0.75);
+  backdrop-filter: blur(12px);
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.45);
+}
+
+.hud-root-viewport .tactical-hud-corner.top-left {
+  top: 14px;
+  left: 14px;
+  color: #00f0ff;
+  border-left: 3px solid #00f0ff;
+}
+
+.hud-root-viewport .tactical-hud-corner.top-right {
+  top: 14px;
+  right: 14px;
+  text-align: right;
+  color: var(--accent-amber);
+  border-right: 3px solid var(--accent-amber);
+}
+
+.hud-root-viewport .tactical-hud-corner.bottom-left {
+  bottom: 14px;
+  left: 14px;
+  border-bottom: 2px solid #38bdf8;
+}
+
+.hud-root-viewport .gesture-hint-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #38bdf8;
+  letter-spacing: 0.04em;
+  font-weight: 800;
+}

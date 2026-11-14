@@ -18,6 +18,9 @@ import {
 } from './data/marsLocations';
 import { enrichLocationWithOfficialData } from './services/nasaPlaceService';
 
+// Lazy-load the RedAtlas Astronaut Helmet HUD for instant initial load and code-splitting
+const HudApp = React.lazy(() => import('./hud/HudApp'));
+
 export default function App() {
   const [activeNav, setActiveNav] = useState('Map');
   const [activeSection, setActiveSection] = useState('Overview');
@@ -26,6 +29,40 @@ export default function App() {
   const [isSimOpen, setIsSimOpen] = useState(false);
   const [isMissionsOpen, setIsMissionsOpen] = useState(false);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
+
+  // Astronaut Visor HUD mode (RedAtlas HUD)
+  const [showHud, setShowHud] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.location.hash === '#hud' || window.location.pathname === '/hud';
+    }
+    return false;
+  });
+
+  const handleOpenHud = () => {
+    setShowHud(true);
+    if (typeof window !== 'undefined' && window.location.hash !== '#hud') {
+      window.history.pushState({ view: 'hud' }, '', '#hud');
+    }
+  };
+
+  const handleCloseHud = () => {
+    setShowHud(false);
+    if (typeof window !== 'undefined' && window.location.hash === '#hud') {
+      window.history.pushState({ view: 'atlas' }, '', '#');
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setShowHud(window.location.hash === '#hud' || window.location.pathname === '/hud');
+    };
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('hashchange', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', handlePopState);
+    };
+  }, []);
 
   // Dynamic secondary objectives added to the active mission route
   const [routeObjectives, setRouteObjectives] = useState([]);
@@ -39,7 +76,7 @@ export default function App() {
     try {
       const saved = localStorage.getItem('red_atlas_theme');
       if (saved === 'light' || saved === 'dark') return saved;
-    } catch (e) {}
+    } catch (e) { }
     return 'dark';
   });
 
@@ -47,7 +84,7 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme);
     try {
       localStorage.setItem('red_atlas_theme', theme);
-    } catch (e) {}
+    } catch (e) { }
   }, [theme]);
 
   const toggleTheme = () => {
@@ -176,7 +213,7 @@ export default function App() {
     if (activeNav === 'Planning') {
       return (
         <div className="center-page-card custom-scrollbar">
-          <PlanningView onOpenHUD={() => setIsSimOpen(true)} />
+          <PlanningView onOpenHUD={handleOpenHud} />
         </div>
       );
     }
@@ -196,7 +233,7 @@ export default function App() {
             <WaypointsView
               selectedLocation={selectedLocation}
               onSelectWaypoint={(wp) => handleSelectLocation(wp.locationId)}
-              onOpenHUD={() => setIsSimOpen(true)}
+              onOpenHUD={handleOpenHud}
             />
           </div>
         );
@@ -217,7 +254,7 @@ export default function App() {
           <div className={`center-page-card custom-scrollbar ${isMapExpanded ? 'terrain-expanded-card' : ''}`}>
             <TerrainView
               selectedLocation={selectedLocation}
-              onOpenHUD={() => setIsSimOpen(true)}
+              onOpenHUD={handleOpenHud}
               isExpanded={isMapExpanded}
               onToggleExpand={setIsMapExpanded}
               pinnedLocations={pinnedLocations}
@@ -263,6 +300,41 @@ export default function App() {
 
   const isOverview = activeNav === 'Map' && activeSection === 'Overview' && !isMapExpanded;
 
+  if (showHud) {
+    return (
+      <React.Suspense
+        fallback={
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: '#040608',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#f59e0b',
+              fontFamily: "'Share Tech Mono', 'JetBrains Mono', monospace",
+              zIndex: 99999
+            }}
+          >
+            <div style={{ fontSize: '20px', letterSpacing: '0.15em', marginBottom: '12px' }}>
+              INITIALIZING HUD VISOR...
+            </div>
+            <div style={{ fontSize: '13px', color: '#94a3b8', letterSpacing: '0.08em' }}>
+              CALIBRATING AVIONICS & SENSORS
+            </div>
+          </div>
+        }
+      >
+        <HudApp
+          onExit={handleCloseHud}
+          initialLocation={selectedLocation}
+        />
+      </React.Suspense>
+    );
+  }
+
   return (
     <div className={`mars-dashboard-root ${isMapExpanded ? 'is-map-expanded' : ''}`}>
       {/* Top Main Navigation Header */}
@@ -280,7 +352,7 @@ export default function App() {
         <Sidebar
           activeSection={activeNav === 'Map' ? activeSection : activeNav}
           setActiveSection={handleSidebarClick}
-          onExplorePromo={() => setIsSimOpen(true)}
+          onExplorePromo={handleOpenHud}
         />
 
         {/* Center Column: Dynamic Content Page with Smooth Transition */}
@@ -297,7 +369,7 @@ export default function App() {
               locationData={selectedLocation}
               activeMission={activeMission}
               routeObjectives={routeObjectives}
-              onPlayVideo={() => setIsSimOpen(true)}
+              onPlayVideo={handleOpenHud}
               onAddToRoute={() => handleToggleAddToRoute(selectedLocation)}
               onRemoveFromRoute={handleRemoveFromRoute}
               isAddedToRoute={isLocationInRoute(selectedLocation?.id)}

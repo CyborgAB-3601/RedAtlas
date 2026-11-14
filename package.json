@@ -5,12 +5,17 @@
   "scripts": {
     "dev": "vite --port 3000 --host",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "gesture:server": "python gesture_server.py",
+    "gesture:server:external": "python gesture_server.py --camera 2",
+    "gesture:server:internal": "python gesture_server.py --camera 1",
+    "test:gestures": "python test_gesture_client.py"
   },
   "devDependencies": {
     "shadcn": "^4.22.0"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^1.2.3",
     "@vitejs/plugin-react": "^6.1.2",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.59.0",

@@ -43,8 +43,19 @@ export default function Sidebar({ activeSection, setActiveSection, onExploreProm
       </div>
 
       {/* Bottom Promo Card with Slanted Architectural Top */}
-      <div className="sidebar-promo-wrapper" onClick={onExplorePromo}>
-        <div className="sidebar-promo-card">
+      <div
+        className="sidebar-promo-wrapper"
+        onClick={onExplorePromo}
+        title="Launch Astronaut Helmet HUD (Mars EVA Visor System)"
+        style={{ cursor: 'pointer' }}
+      >
+        <div
+          className="sidebar-promo-card"
+          onClick={(e) => {
+            e.stopPropagation();
+            onExplorePromo?.();
+          }}
+        >
           <img
             src="/assets/mars_frontier_promo.jpg"
             alt="Martian Frontier"
@@ -55,7 +66,14 @@ export default function Sidebar({ activeSection, setActiveSection, onExploreProm
             <h3 className="promo-title">
               A<br />New Frontier<br />Awaits.
             </h3>
-            <button className="promo-action-btn" aria-label="Explore Mars frontier">
+            <button
+              className="promo-action-btn"
+              aria-label="Explore Mars frontier"
+              onClick={(e) => {
+                e.stopPropagation();
+                onExplorePromo?.();
+              }}
+            >
               <ArrowUpRight size={17} />
             </button>
           </div>
