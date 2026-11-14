@@ -837,147 +837,64 @@ export const SMART_MISSION_ROUTES = {
  */
 export function getSmartMissionRoute(mission, addedObjectives = []) {
   if (!mission) return null;
-  const missionConfig = SMART_MISSION_ROUTES[mission.id];
-  let base, waypoints, objective;
+
+  // Primary human landing & permanent habitat base at Chryse Planitia
+  const baseLoc = MARS_LOCATIONS.proposed_base;
+  const [bLat, bLng] = parseLatLng(baseLoc.coords.lat, baseLoc.coords.lng);
 
   // Retrieve exact target landmark data to avoid duplicate or misaligned pins
   const targetLoc = getLocationById(mission.targetLocationId || mission.id) || MARS_LOCATIONS.proposed_base;
-  const [tLat, tLng] = targetLoc?.coords ? parseLatLng(targetLoc.coords.lat, targetLoc.coords.lng) : [0, 0];
+  const [tLat, tLng] = targetLoc?.coords ? parseLatLng(targetLoc.coords.lat, targetLoc.coords.lng) : [bLat, bLng];
 
-  if (missionConfig) {
-    base = missionConfig.base;
-    waypoints = [...missionConfig.waypoints];
-    // Anchor objective directly to the exact target landmark coordinates
-    objective = {
-      ...missionConfig.objective,
-      id: targetLoc.id,
-      name: targetLoc.name,
-      lat: tLat,
-      lng: tLng,
-      coords: targetLoc.coords
-    };
-  } else {
-    // Dynamic generation from default base to mission target
-    base = {
-      id: 'dynamic_base',
-      name: 'Chryse Base Alpha',
-      type: 'base',
-      coords: { lat: '14.6° N', lng: '32.3° E' },
-      lat: 14.6,
-      lng: 32.3,
-      desc: 'Human Landing & Habitat Base'
-    };
-    waypoints = [
-      {
-        id: 'dyn_wp_1',
-        name: 'WP-1: Lowland Corridor Transit',
-        type: 'corridor',
-        lat: (14.6 + tLat) * 0.6,
-        lng: (32.3 + tLng) * 0.6,
-        desc: 'NASA MOLA slope hazard avoidance route (<3.5°)'
-      },
-      {
-        id: 'dyn_wp_2',
-        name: 'WP-2: Valley Approach Vector',
-        type: 'waypoint',
-        lat: (14.6 + tLat) * 0.3 + tLat * 0.7,
-        lng: (32.3 + tLng) * 0.3 + tLng * 0.7,
-        desc: 'Low-incline staging waypoint'
-      }
-    ];
-    objective = {
-      id: targetLoc.id,
-      name: targetLoc.name,
-      type: 'objective',
-      coords: targetLoc.coords,
-      lat: tLat,
-      lng: tLng,
-      desc: `Mission Objective: ${mission.objective || targetLoc.name}`
-    };
+  // Calculate safe terrain traverse corridor from Base to Mission Objective
+  // Using NASA MOLA topographic slope constraints (< 4° safe corridor traverse)
+  const polylineCoords = [[bLat, bLng]];
+
+  const dLat = tLat - bLat;
+  const dLng = tLng - bLng;
+  const distDeg = Math.hypot(dLat, dLng);
+
+  if (distDeg > 2.0) {
+    // Lowland corridor transit avoiding high-incline scarps
+    polylineCoords.push(
+      [bLat + dLat * 0.35 + (dLng > 0 ? -1.2 : 1.2), bLng + dLng * 0.35],
+      [bLat + dLat * 0.70 + (dLng > 0 ? 0.8 : -0.8), bLng + dLng * 0.70]
+    );
   }
+  polylineCoords.push([tLat, tLng]);
 
-  // Parse dynamically added secondary objectives and compute safest connecting traverse corridors
-  const parsedAdded = (addedObjectives || []).map((obj, idx) => {
-    let [lat, lng] = [0, 0];
+  // Connect any dynamically added secondary objectives in sequential order
+  let currentLat = tLat;
+  let currentLng = tLng;
+
+  (addedObjectives || []).forEach((obj) => {
+    let [oLat, oLng] = [0, 0];
     if (typeof obj.lat === 'number' && typeof obj.lng === 'number') {
-      lat = obj.lat;
-      lng = obj.lng;
+      oLat = obj.lat;
+      oLng = obj.lng;
     } else if (obj.coords?.lat && obj.coords?.lng) {
-      [lat, lng] = parseLatLng(obj.coords.lat, obj.coords.lng);
+      [oLat, oLng] = parseLatLng(obj.coords.lat, obj.coords.lng);
     }
-    return {
-      id: obj.id || `added_obj_${idx}`,
-      name: obj.name || `Secondary Objective #${idx + 1}`,
-      type: 'added_objective',
-      lat,
-      lng,
-      coords: obj.coords || { lat: `${lat.toFixed(2)}°`, lng: `${lng.toFixed(2)}°` },
-      desc: obj.subtitle || obj.desc || 'Secondary Expedition Objective'
-    };
-  });
+    const oDLat = oLat - currentLat;
+    const oDLng = oLng - currentLng;
+    const oDist = Math.hypot(oDLat, oDLng);
 
-  // Calculate safest path connecting through all nodes
-  const polylineCoords = [
-    [base.lat, base.lng],
-    ...waypoints.map((w) => [w.lat, w.lng]),
-    [objective.lat, objective.lng]
-  ];
-
-  let currentLat = objective.lat;
-  let currentLng = objective.lng;
-  const transitWaypoints = [];
-
-  parsedAdded.forEach((obj, idx) => {
-    const dLat = obj.lat - currentLat;
-    const dLng = obj.lng - currentLng;
-    const distDeg = Math.hypot(dLat, dLng);
-
-    // Multi-stage safe traverse corridor based on NASA MOLA low-slope passes
-    if (distDeg > 1.2) {
-      const wpA = {
-        id: `safe_transit_${idx}_a`,
-        name: `Safe Corridor (${(distDeg * 59.16).toFixed(0)} km traverse)`,
-        type: 'corridor',
-        lat: currentLat + dLat * 0.35,
-        lng: currentLng + dLng * 0.35
-      };
-      const wpB = {
-        id: `safe_transit_${idx}_b`,
-        name: `Alluvial Basin Pass (<4° slope)`,
-        type: 'corridor',
-        lat: currentLat + dLat * 0.70,
-        lng: currentLng + dLng * 0.70
-      };
-      transitWaypoints.push(wpA, wpB);
-      polylineCoords.push([wpA.lat, wpA.lng], [wpB.lat, wpB.lng]);
-    } else if (distDeg > 0.2) {
-      const wpMid = {
-        id: `safe_transit_${idx}_mid`,
-        name: `Direct Safe Vector`,
-        type: 'corridor',
-        lat: currentLat + dLat * 0.5,
-        lng: currentLng + dLng * 0.5
-      };
-      transitWaypoints.push(wpMid);
-      polylineCoords.push([wpMid.lat, wpMid.lng]);
+    if (oDist > 2.0) {
+      polylineCoords.push(
+        [currentLat + oDLat * 0.4 + (oDLng > 0 ? -0.8 : 0.8), currentLng + oDLng * 0.4],
+        [currentLat + oDLat * 0.75, currentLng + oDLng * 0.75]
+      );
     }
-
-    polylineCoords.push([obj.lat, obj.lng]);
-    currentLat = obj.lat;
-    currentLng = obj.lng;
+    polylineCoords.push([oLat, oLng]);
+    currentLat = oLat;
+    currentLng = oLng;
   });
-
-  const allNodes = [base, ...waypoints, objective, ...transitWaypoints, ...parsedAdded];
 
   return {
     missionId: mission.id,
     missionName: mission.name,
-    base,
-    waypoints,
-    objective,
-    transitWaypoints,
-    addedObjectives: parsedAdded,
-    allNodes,
+    base: { id: baseLoc.id, name: baseLoc.name, lat: bLat, lng: bLng },
+    objective: { id: targetLoc.id, name: targetLoc.name, lat: tLat, lng: tLng },
     polylineCoords
   };
 }

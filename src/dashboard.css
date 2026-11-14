@@ -6096,107 +6096,72 @@
   color: #FFFFFF;
 }
 
-/* MISSION OBJECTIVE PIN ON THE LANDMARK (NO OVERLAPPING BUBBLE) */
-.mission-objective-pin {
-  display: flex !important;
-  align-items: center;
-  position: relative;
+/* MISSION OBJECTIVE LANDMARK PIN */
+.mission-target-marker {
   cursor: pointer;
   pointer-events: auto;
 }
 
-.mission-objective-pin .mission-obj-dot {
+.mission-target-marker .waypoint-dot-outer {
   position: relative;
+  background: rgba(255, 68, 51, 0.45);
+  border: 1.5px solid #FF4433;
+  box-shadow: 0 0 10px rgba(255, 68, 51, 0.65);
+}
+
+.mission-target-marker .waypoint-dot-outer.completed {
+  background: rgba(16, 185, 129, 0.45);
+  border-color: #10B981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.65);
+}
+
+.mission-target-marker .waypoint-dot-inner {
   background: #FF4433;
-  border-color: #FFFFFF;
-  box-shadow: 0 0 10px #FF4433, 0 0 20px rgba(255, 68, 51, 0.6);
+  box-shadow: 0 0 6px #FF4433;
 }
 
-.mission-objective-pin .mission-obj-dot.completed {
+.mission-target-marker .waypoint-dot-outer.completed .waypoint-dot-inner {
   background: #10B981;
-  box-shadow: 0 0 10px #10B981, 0 0 20px rgba(16, 185, 129, 0.6);
+  box-shadow: 0 0 6px #10B981;
 }
 
-.mission-objective-pin .mission-obj-pulse {
+/* Hover X Button inside the circle part of the Pin */
+.mission-target-marker .mission-dot-x-btn {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1.5px solid #FF4433;
-  transform: translate(-50%, -50%);
-  animation: redBeaconPulse 2s ease-out infinite;
-  pointer-events: none;
-}
-
-.mission-objective-pin .mission-label-container {
-  display: flex;
-  flex-direction: column;
-  margin-left: 6px;
-  background: rgba(14, 10, 10, 0.92);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 68, 51, 0.45);
-  border-radius: var(--radius-sm);
-  padding: 2px 7px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
-  white-space: nowrap;
-}
-
-.mission-target-badge {
-  font-size: 7.5px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  font-family: var(--font-mono);
-}
-
-.mission-target-badge.running {
-  color: #FF5533;
-}
-
-.mission-target-badge.completed {
-  color: #10B981;
-}
-
-/* Hover X Button on the Mission Objective Pin */
-.mission-objective-pin .mission-pin-x-btn {
+  transform: translate(-50%, -50%) scale(0.6);
   opacity: 0;
-  transform: scale(0.7);
   pointer-events: none;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #FF2233;
+  border: none;
+  color: #FFFFFF;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 19px;
-  height: 19px;
-  border-radius: 50%;
-  background: #FF2233;
-  border: 1.5px solid #FFFFFF;
-  color: #FFFFFF;
+  padding: 0;
   cursor: pointer;
-  margin-left: 5px;
-  box-shadow: 0 0 10px rgba(255, 34, 51, 0.85);
-  flex-shrink: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  z-index: 10;
 }
 
-.mission-objective-pin:hover .mission-pin-x-btn {
+.mission-target-marker:hover .mission-dot-x-btn {
   opacity: 1;
-  transform: scale(1);
+  transform: translate(-50%, -50%) scale(1.15);
   pointer-events: auto;
 }
 
-.mission-objective-pin .mission-pin-x-btn:hover {
-  background: #E01828;
-  transform: scale(1.22);
-  box-shadow: 0 0 16px #FF2233;
+.mission-target-marker:hover .waypoint-dot-inner {
+  opacity: 0;
 }
 
-/* Completed Route Style */
-.mars-trek-leaflet-viewport .leaflet-smart-route-completed {
-  stroke: #10B981;
-  stroke-dasharray: none;
-  filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.8));
+.mission-target-marker .mission-dot-x-btn:hover {
+  background: #DC2626;
+  transform: translate(-50%, -50%) scale(1.35);
+  box-shadow: 0 0 8px #FF2233;
 }
 
 /* Status Chips for Missions Modal */
