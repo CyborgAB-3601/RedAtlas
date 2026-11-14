@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MARS_LOCATIONS, getSmartMissionRoute, parseLatLng } from '../data/marsLocations';
+import { MARS_LOCATIONS, getSmartMissionRoute, parseLatLng, computeMarsTraverseDistanceKm } from '../data/marsLocations';
 
 const TREK_LAYERS = {
   Satellite: {
@@ -258,6 +258,12 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
       locationsToRender.push(selectedLocation);
     }
 
+    // Base coordinates for distance computation
+    const [bLat, bLng] = parseLatLng(
+      MARS_LOCATIONS.proposed_base.coords.lat,
+      MARS_LOCATIONS.proposed_base.coords.lng
+    );
+
     // 1. RENDER MAIN ATTRACTIONS & LANDMARKS AS DISTINCT POINTS (NO DEFAULT CONNECTING LINE!)
     locationsToRender.forEach((loc) => {
       if (!loc.coords?.lat || !loc.coords?.lng) return;
@@ -270,6 +276,9 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
         (activeMission.id === 'jezero_sample' && loc.id === 'jezero') ||
         (activeMission.id === 'olympus_shelter' && loc.id === 'olympus')
       );
+
+      const distFromBase = isBase ? 0 : computeMarsTraverseDistanceKm(bLat, bLng, lat, lng);
+      const distInfoText = isBase ? 'Base Station' : `${distFromBase.toLocaleString()} km from Base`;
 
       let html = '';
       let iconSize = [32, 32];
@@ -306,7 +315,10 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
                 </button>
               ` : ''}
             </div>
-            <span class="waypoint-label">${loc.name}</span>
+            <div class="waypoint-label-wrap">
+              <span class="waypoint-label">${loc.name}</span>
+              <span class="waypoint-hover-dist">${distInfoText}</span>
+            </div>
           </div>
         `;
         iconSize = [140, 32];
@@ -365,6 +377,38 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
           className: 'leaflet-route-animated'
         });
         routeGroup.addLayer(routeLine);
+
+        // Render Safe Corridor Diversion Nodes with Hover Rationale Tooltips
+        (smartRoute.corridorNodes || []).forEach((node) => {
+          const nodeHtml = `
+            <div class="route-corridor-node leaflet-custom-marker">
+              <div class="corridor-dot-outer">
+                <div class="corridor-dot-inner"></div>
+              </div>
+              <div class="corridor-hover-card">
+                <div class="corridor-header-row">
+                  <span class="corridor-badge">SAFE ROUTE CORRIDOR</span>
+                  <span class="corridor-dist-badge">+${node.distanceKm || 0} km</span>
+                </div>
+                <div class="corridor-title-text">${node.name}</div>
+                <div class="corridor-reason-text">${node.reason}</div>
+                <div class="corridor-metrics-row">
+                  <span class="corridor-metric-chip">${node.maxSlope || '< 3.0°'}</span>
+                  <span class="corridor-metric-chip">${node.soil || 'Stable Regolith'}</span>
+                  <span class="corridor-metric-chip">${node.totalDistanceKm || 0} km from Base</span>
+                </div>
+              </div>
+            </div>
+          `;
+          const nodeIcon = L.divIcon({
+            className: 'leaflet-corridor-wrapper',
+            html: nodeHtml,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+          });
+          const nodeMarker = L.marker([node.lat, node.lng], { icon: nodeIcon });
+          routeGroup.addLayer(nodeMarker);
+        });
       }
     }
 

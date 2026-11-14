@@ -524,17 +524,22 @@ export default function DetailPanel({
             className={`add-to-route-btn ${isInPath ? 'added' : ''}`}
             onClick={() => {
               if (isInPath) {
-                setIsMarkedReached((prev) => !prev);
+                // When place reached is clicked, complete this segment, remove path, and return button to normal
+                if (onRemoveFromRoute) {
+                  onRemoveFromRoute(activeLoc);
+                } else if (onAddToRoute) {
+                  onAddToRoute();
+                }
               } else {
                 onAddToRoute();
               }
             }}
-            title={isInPath ? (isMarkedReached ? 'Place marked reached' : 'Mark location reached') : 'Add to expedition route'}
+            title={isInPath ? 'Place reached - Click to remove path & complete traverse' : 'Add to expedition route'}
           >
             {isInPath ? (
               <>
                 <CheckCircle2 size={16} />
-                <span>{isMarkedReached ? 'Place Reached' : 'Mark Reached'}</span>
+                <span>Place Reached</span>
               </>
             ) : (
               <>
