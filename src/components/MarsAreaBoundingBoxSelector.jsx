@@ -171,21 +171,35 @@ export default function MarsAreaBoundingBoxSelector({
     setIsDrawing(false);
     setDragStart(null);
 
-    // If box has meaningful area (at least 1% span)
-    if (tempBox.xMax - tempBox.xMin > 0.01 && tempBox.yMax - tempBox.yMin > 0.01) {
-      const nw = normToGeo(tempBox.xMin, tempBox.yMin);
-      const se = normToGeo(tempBox.xMax, tempBox.yMax);
+    // If box has meaningful area (at least 0.5% span)
+    if (tempBox.xMax - tempBox.xMin > 0.005 && tempBox.yMax - tempBox.yMin > 0.005) {
+      const minX = Math.min(tempBox.xMin, tempBox.xMax);
+      const maxX = Math.max(tempBox.xMin, tempBox.xMax);
+      const minY = Math.min(tempBox.yMin, tempBox.yMax);
+      const maxY = Math.max(tempBox.yMin, tempBox.yMax);
+
+      const nw = normToGeo(minX, minY);
+      const se = normToGeo(maxX, maxY);
+
+      const latMin = Math.min(nw.lat, se.lat);
+      const latMax = Math.max(nw.lat, se.lat);
+      const lngMin = Math.min(nw.lng, se.lng);
+      const lngMax = Math.max(nw.lng, se.lng);
+
+      const midLat = (latMin + latMax) / 2;
+      const kmHeight = Math.max(2, Math.round(((latMax - latMin) / 180) * Math.PI * 3389.5));
+      const kmWidth = Math.max(2, Math.round(((lngMax - lngMin) / 360) * 2 * Math.PI * 3389.5 * Math.cos((midLat * Math.PI) / 180)));
 
       const customBox = {
         id: 'custom_selection_' + Date.now(),
-        name: 'Custom Mars Area Selection',
-        desc: `Bounding Box: ${se.lat.toFixed(1)}° to ${nw.lat.toFixed(1)}° Lat, ${nw.lng.toFixed(1)}° to ${se.lng.toFixed(1)}° Lng`,
-        latMin: se.lat,
-        latMax: nw.lat,
-        lngMin: nw.lng,
-        lngMax: se.lng,
+        name: `Drawn Sector (${kmWidth} × ${kmHeight} km)`,
+        desc: `Target Sector: ${latMin.toFixed(1)}° to ${latMax.toFixed(1)}° Lat, ${lngMin.toFixed(1)}° to ${lngMax.toFixed(1)}° Lng`,
+        latMin,
+        latMax,
+        lngMin,
+        lngMax,
         icon: '📐',
-        feature: 'Custom Bounding Box'
+        feature: `${kmWidth} × ${kmHeight} km Area`
       };
 
       if (onSelectBoundingBox) {

@@ -326,6 +326,7 @@ export default function MarsGaussianTerrainCanvas({
   const contourLinesRef = useRef(null);
   const pinsGroupRef = useRef(null);
   const molaImageCanvasRef = useRef(null);
+  const satImageCanvasRef = useRef(null);
 
   // Active state
   const [renderMode, setRenderMode] = useState('splats'); // 'splats' | 'textured' | 'elevation' | 'slope'
@@ -335,6 +336,7 @@ export default function MarsGaussianTerrainCanvas({
   const [cameraPreset, setCameraPreset] = useState('orbit');
   const [elevationStats, setElevationStats] = useState({ minM: -2450, maxM: 1200, reliefM: 3650 });
   const [molaLoaded, setMolaLoaded] = useState(false);
+  const [satLoaded, setSatLoaded] = useState(false);
 
   const box = selectedBoundingBox || {
     id: 'olympus_mons',
@@ -345,27 +347,62 @@ export default function MarsGaussianTerrainCanvas({
     lngMax: -128.0
   };
 
-  // Preload NASA MOLA Elevation Raster Map
+  // Preload NASA JPL Mars Trek 4K Global Elevation & Satellite Datasets
   useEffect(() => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = '/assets/nasa_mola_elevation_global.jpg';
-    img.onload = () => {
+    // 1. Elevation raster (4K first, fallback to 1K)
+    const elevImg = new Image();
+    elevImg.crossOrigin = 'anonymous';
+    elevImg.src = '/assets/nasa_jpl_marstrek_elevation_4k.jpg';
+    elevImg.onload = () => {
       const offCanvas = document.createElement('canvas');
-      offCanvas.width = img.width;
-      offCanvas.height = img.height;
+      offCanvas.width = elevImg.width;
+      offCanvas.height = elevImg.height;
       const ctx = offCanvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(elevImg, 0, 0);
       molaImageCanvasRef.current = {
         ctx,
-        width: img.width,
-        height: img.height,
-        imgData: ctx.getImageData(0, 0, img.width, img.height).data
+        width: elevImg.width,
+        height: elevImg.height,
+        imgData: ctx.getImageData(0, 0, elevImg.width, elevImg.height).data
       };
       setMolaLoaded(true);
     };
-    img.onerror = () => {
-      console.warn('MOLA global raster map not available; high-precision scientific models active.');
+    elevImg.onerror = () => {
+      const fallbackImg = new Image();
+      fallbackImg.src = '/assets/nasa_mola_elevation_global.jpg';
+      fallbackImg.onload = () => {
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = fallbackImg.width;
+        offCanvas.height = fallbackImg.height;
+        const ctx = offCanvas.getContext('2d');
+        ctx.drawImage(fallbackImg, 0, 0);
+        molaImageCanvasRef.current = {
+          ctx,
+          width: fallbackImg.width,
+          height: fallbackImg.height,
+          imgData: ctx.getImageData(0, 0, fallbackImg.width, fallbackImg.height).data
+        };
+        setMolaLoaded(true);
+      };
+    };
+
+    // 2. Satellite ortho mosaic for photorealistic splat coloring
+    const satImg = new Image();
+    satImg.crossOrigin = 'anonymous';
+    satImg.src = '/assets/nasa_jpl_marstrek_satellite_4k.jpg';
+    satImg.onload = () => {
+      const offCanvas = document.createElement('canvas');
+      offCanvas.width = satImg.width;
+      offCanvas.height = satImg.height;
+      const ctx = offCanvas.getContext('2d');
+      ctx.drawImage(satImg, 0, 0);
+      satImageCanvasRef.current = {
+        ctx,
+        width: satImg.width,
+        height: satImg.height,
+        imgData: ctx.getImageData(0, 0, satImg.width, satImg.height).data
+      };
+      setSatLoaded(true);
     };
   }, []);
 
@@ -711,19 +748,27 @@ export default function MarsGaussianTerrainCanvas({
         } else if (renderMode === 'slope') {
           c = getSlopeHazardColor(slopeDeg);
         } else {
-          // Photorealistic Martian regolith & iron-oxide palette
-          const baseR = 0.76 + (elevNorm - 0.5) * 0.16;
-          const baseG = 0.40 + (elevNorm - 0.5) * 0.10;
-          const baseB = 0.22 + (elevNorm - 0.5) * 0.08;
+          // If 4K satellite image is available, sample real NASA satellite surface colors!
+          const satData = satImageCanvasRef.current;
+          let rSat = 0.76, gSat = 0.40, bSat = 0.22;
+          if (satData && satData.imgData) {
+            const pxSat = Math.floor(Math.max(0, Math.min(1, (lng + 180) / 360)) * (satData.width - 1));
+            const pySat = Math.floor(Math.max(0, Math.min(1, (90 - lat) / 180)) * (satData.height - 1));
+            const idxSat = (pySat * satData.width + pxSat) * 4;
+            rSat = satData.imgData[idxSat] / 255.0;
+            gSat = satData.imgData[idxSat + 1] / 255.0;
+            bSat = satData.imgData[idxSat + 2] / 255.0;
+          }
+
           // Sunlit ambient shadow contrast
-          const shade = Math.max(0.35, normVec.dot(new THREE.Vector3(0.5, 0.8, 0.3).normalize()));
+          const shade = Math.max(0.40, normVec.dot(new THREE.Vector3(0.5, 0.8, 0.3).normalize()));
 
           if (box.id === 'planum_boreum' || box.id === 'polar_north') {
             // Polar ice cap: icy white with blueish frost
             const iceShade = 0.85 + elevNorm * 0.15;
             c.setRGB(iceShade * 0.95, iceShade * 0.96, iceShade * 1.0);
           } else {
-            c.setRGB(baseR * shade, baseG * shade, baseB * shade);
+            c.setRGB(rSat * shade * 1.15, gSat * shade * 1.15, bSat * shade * 1.15);
           }
         }
 
@@ -821,30 +866,46 @@ export default function MarsGaussianTerrainCanvas({
 
       const stalkGeom = new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8);
       stalkGeom.translate(0, 1.6, 0);
-      const stalkColor = type === 'hazard' ? 0xE67E22 : type === 'base' ? 0xD84D29 : 0x3498DB;
+      const stalkColor = type === 'center' ? 0xFFFFFF : type === 'hazard' ? 0xE67E22 : type === 'base' ? 0xD84D29 : 0x3498DB;
       const stalk = new THREE.Mesh(stalkGeom, new THREE.MeshBasicMaterial({ color: stalkColor }));
       pinGroup.add(stalk);
 
-      const sphereGeom = new THREE.SphereGeometry(0.5, 16, 16);
+      const sphereGeom = new THREE.SphereGeometry(type === 'center' ? 0.75 : 0.5, 16, 16);
       sphereGeom.translate(0, 3.2, 0);
-      const beaconColor = type === 'hazard' ? 0xFFA500 : type === 'base' ? 0xFF4500 : 0x00D4FF;
+      const beaconColor = type === 'center' ? 0xFFFFFF : type === 'hazard' ? 0xFFA500 : type === 'base' ? 0xFF4500 : 0x00D4FF;
       const sphere = new THREE.Mesh(sphereGeom, new THREE.MeshBasicMaterial({ color: beaconColor }));
       pinGroup.add(sphere);
 
-      const ringGeom = new THREE.RingGeometry(0.3, 0.7, 16);
+      const ringGeom = new THREE.RingGeometry(0.35, 0.85, 24);
       ringGeom.rotateX(-Math.PI / 2);
       ringGeom.translate(0, 0.08, 0);
       const ring = new THREE.Mesh(
         ringGeom,
-        new THREE.MeshBasicMaterial({ color: 0xFFFFFF, side: THREE.DoubleSide, transparent: true, opacity: 0.6 })
+        new THREE.MeshBasicMaterial({ color: 0xFFFFFF, side: THREE.DoubleSide, transparent: true, opacity: type === 'center' ? 0.95 : 0.6 })
       );
       pinGroup.add(ring);
+
+      if (type === 'center') {
+        const outerTargetGeom = new THREE.RingGeometry(1.2, 1.45, 28);
+        outerTargetGeom.rotateX(-Math.PI / 2);
+        outerTargetGeom.translate(0, 0.1, 0);
+        const outerRing = new THREE.Mesh(
+          outerTargetGeom,
+          new THREE.MeshBasicMaterial({ color: 0xFFFFFF, side: THREE.DoubleSide, transparent: true, opacity: 0.75 })
+        );
+        pinGroup.add(outerRing);
+      }
 
       pinsGroupRef.current.add(pinGroup);
     };
 
+    // Center of splat ALWAYS gets the pure white center marker pin (matches the white center dot on the map)!
+    const midJ = Math.floor(GRID_SIZE_Z / 2);
+    const midI = Math.floor(GRID_SIZE_X / 2);
+    const centerElevM = cleanedMetersGrid[midJ] ? cleanedMetersGrid[midJ][midI] : sampleMinM;
+    createWaypointPin(0, 0, 'Splat Center', `${Math.round(centerElevM)} m`, 'center');
+
     if (box.id === 'olympus' || box.id === 'olympus_mons') {
-      createWaypointPin(0, 0, 'Summit Caldera Complex', `${Math.round(sampleMaxM)} m`, 'base');
       createWaypointPin(-0.62, -0.38, 'Basal Cliff Scarp', '6,000–8,000 m drop', 'hazard');
       createWaypointPin(0.48, 0.44, 'Lava Channel Vent', `${Math.round(sampleMinM + realReliefM * 0.45)} m`, 'science');
     } else if (box.id === 'valles' || box.id === 'valles_marineris') {
@@ -857,19 +918,16 @@ export default function MarsGaussianTerrainCanvas({
       createWaypointPin(0.62, 0.22, 'North Rim Crest', 'Elevation +1,100 m', 'hazard');
     } else if (box.id === 'jezero' || box.id === 'jezero_crater') {
       createWaypointPin(-0.38, 0.0, 'Neretva Delta Fan', `${Math.round(sampleMinM + 250)} m`, 'science');
-      createWaypointPin(0, 0, 'Sedimentary Lakebed', `${Math.round(sampleMinM)} m`, 'base');
       createWaypointPin(0.56, 0.26, 'Belva Crater Rim', `${Math.round(sampleMaxM)} m`, 'hazard');
     } else if (box.id === 'planum_boreum' || box.id === 'polar_north') {
-      createWaypointPin(0, 0, 'Planum Boreum Ice Dome', `${Math.round(sampleMaxM)} m`, 'base');
       createWaypointPin(-0.42, 0.18, 'Chasma Boreale Trough', `${Math.round(sampleMinM)} m`, 'hazard');
       createWaypointPin(0.35, -0.28, 'Spiral Ice Trough', `${Math.round(sampleMinM + 600)} m`, 'science');
     } else {
-      createWaypointPin(0, 0, box.name, `${Math.round(sampleMaxM)} m`, 'base');
-      createWaypointPin(-0.5, -0.32, 'Escarpment Rim', 'Slope: 18.4°', 'hazard');
+      createWaypointPin(-0.5, -0.32, 'Area Boundary', 'Slope: 18.4°', 'hazard');
       createWaypointPin(0.42, 0.36, 'Lowland Floor', `${Math.round(sampleMinM)} m`, 'science');
     }
 
-  }, [box.latMin, box.latMax, box.lngMin, box.lngMax, box.id, renderMode, elevationExaggeration, contourStep, showContours, showSlopeHazards, molaLoaded]);
+  }, [box.latMin, box.latMax, box.lngMin, box.lngMax, box.id, renderMode, elevationExaggeration, contourStep, showContours, showSlopeHazards, molaLoaded, satLoaded]);
 
   // Handle Camera Presets
   const handleSetPreset = (preset) => {
