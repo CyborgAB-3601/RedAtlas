@@ -8,6 +8,7 @@ import {
   ArrowUpRight,
   MoreHorizontal,
   MapPinOff,
+  MinusCircle,
   CheckCircle2,
   Activity,
   Camera,
@@ -21,6 +22,7 @@ export default function DetailPanel({
   activeMission,
   onPlayVideo,
   onAddToRoute,
+  onRemoveFromRoute,
   isAddedToRoute,
   onUnmark
 }) {
@@ -332,11 +334,12 @@ export default function DetailPanel({
           <button
             className={`add-to-route-btn ${isAddedToRoute ? 'added' : ''}`}
             onClick={onAddToRoute}
+            title={isAddedToRoute ? 'Place added to expedition route' : 'Add to expedition route'}
           >
             {isAddedToRoute ? (
               <>
                 <CheckCircle2 size={16} />
-                <span>Added to Route</span>
+                <span>Place Reached</span>
               </>
             ) : (
               <>
@@ -358,6 +361,27 @@ export default function DetailPanel({
 
             {isMoreMenuOpen && (
               <div className="more-options-dropdown animate-fade-in">
+                {isAddedToRoute && (
+                  <button
+                    className="more-dropdown-item remove-route-item"
+                    onClick={() => {
+                      setIsMoreMenuOpen(false);
+                      if (onRemoveFromRoute) {
+                        onRemoveFromRoute(activeLoc);
+                      } else if (onAddToRoute) {
+                        onAddToRoute(activeLoc);
+                      }
+                    }}
+                    title="Remove from Route"
+                  >
+                    <MinusCircle size={15} className="remove-route-icon text-warning" />
+                    <div className="unmark-item-text">
+                      <span className="unmark-title">Remove from Route</span>
+                      <span className="unmark-desc">Exclude from mission traverse</span>
+                    </div>
+                  </button>
+                )}
+
                 <button
                   className="more-dropdown-item unmark-item"
                   onClick={() => {

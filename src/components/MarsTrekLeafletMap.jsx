@@ -31,7 +31,10 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
     pinnedLocations = [],
     onRemovePin,
     activeMission = null,
-    routeObjectives = []
+    routeObjectives = [],
+    missionStatus = 'Running',
+    onCompleteMission,
+    onOpenMissions
   },
   ref
 ) {
@@ -261,6 +264,12 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
       const [lat, lng] = parseLatLng(loc.coords.lat, loc.coords.lng);
       const isSelected = selectedLocation?.id === loc.id;
       const isBase = loc.id === 'proposed_base';
+      const isMissionObjective = activeMission && (
+        activeMission.targetLocationId === loc.id ||
+        (activeMission.id === 'gale_boxwork' && loc.id === 'gale') ||
+        (activeMission.id === 'jezero_sample' && loc.id === 'jezero') ||
+        (activeMission.id === 'olympus_shelter' && loc.id === 'olympus')
+      );
 
       let html = '';
       let iconSize = [32, 32];
@@ -286,6 +295,27 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
         `;
         iconSize = [180, 50];
         iconAnchor = [20, 25];
+      } else if (isMissionObjective) {
+        // Mission Objective Pin (The landmark itself IS the objective; no duplicate blue bubble!)
+        html = `
+          <div class="waypoint-marker standard-marker leaflet-custom-marker mission-objective-pin ${isSelected ? 'selected' : ''}">
+            <div class="waypoint-dot-outer mission-obj-dot ${missionStatus === 'Completed' ? 'completed' : ''}">
+              <div class="waypoint-dot-inner"></div>
+              <div class="mission-obj-pulse"></div>
+            </div>
+            <div class="mission-label-container">
+              <span class="waypoint-label">${loc.name}</span>
+              <span class="mission-target-badge ${missionStatus === 'Completed' ? 'completed' : 'running'}">
+                ${missionStatus === 'Completed' ? 'COMPLETED' : 'MISSION TARGET'}
+              </span>
+            </div>
+            <button class="mission-pin-x-btn" title="${missionStatus === 'Completed' ? 'Mission Finished' : 'Click to Complete Mission [X]'}" data-mission-cancel="true">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+        `;
+        iconSize = [180, 36];
+        iconAnchor = [10, 18];
       } else {
         html = `
           <div class="waypoint-marker standard-marker leaflet-custom-marker ${isSelected ? 'selected' : ''}">
@@ -310,8 +340,22 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
 
       marker.on('click', (e) => {
         L.DomEvent.stopPropagation(e);
+        // Check if user clicked the X cancel / complete button on the mission objective pin
+        const isCancelClick = e.originalEvent?.target?.closest('[data-mission-cancel="true"]');
+        if (isCancelClick) {
+          if (onCompleteMission) {
+            onCompleteMission();
+          }
+          return;
+        }
+
         if (onSelectLocation) {
           onSelectLocation(loc);
+        }
+
+        // Clicking the mission objective pin takes user to the Missions page showing status
+        if (isMissionObjective && onOpenMissions) {
+          onOpenMissions();
         }
       });
 
@@ -331,99 +375,104 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
         });
         routeGroup.addLayer(routeShadow);
 
-        // Animated glowing mission route line
+        // Animated glowing mission route line (Martian Red when Running, Emerald Green when Completed)
+        const isCompleted = missionStatus === 'Completed';
         const routeLine = L.polyline(smartRoute.polylineCoords, {
-          color: '#FF5533',
+          color: isCompleted ? '#10B981' : '#FF4433',
           weight: 3.2,
           dashArray: '6, 8',
           lineCap: 'round',
           lineJoin: 'round',
-          className: 'leaflet-smart-route-animated'
+          className: isCompleted ? 'leaflet-smart-route-completed' : 'leaflet-smart-route-animated'
         });
         routeGroup.addLayer(routeLine);
 
-        // Render Mission Route Nodes: Base -> Intermediate Waypoints -> Objective -> Added Objectives
-        smartRoute.allNodes.forEach((node) => {
-          let nodeHtml = '';
-          let iconSize = [32, 32];
-          let iconAnchor = [16, 16];
+        // Render Mission Base Station Marker (if not already Chryse base)
+        if (smartRoute.base && !locationsToRender.some((l) => l.id === smartRoute.base.id)) {
+          const baseHtml = `
+            <div class="base-site-marker leaflet-custom-marker mission-base-marker">
+              <div class="base-static-ring inner"></div>
+              <div class="base-static-ring outer"></div>
+              <div class="base-pulse-ring"></div>
+              <div class="base-core-dot"></div>
+              <div class="base-callout-bubble">
+                <div class="base-flag-circle">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
+                </div>
+                <div class="base-info-text">
+                  <span class="base-title-text">${smartRoute.base.name}</span>
+                  <span class="base-coords-text">MISSION BASE</span>
+                </div>
+              </div>
+            </div>
+          `;
+          const baseIcon = L.divIcon({
+            className: 'leaflet-smart-node-wrapper',
+            html: baseHtml,
+            iconSize: [185, 50],
+            iconAnchor: [20, 25]
+          });
+          const baseMarker = L.marker([smartRoute.base.lat, smartRoute.base.lng], { icon: baseIcon });
+          baseMarker.on('click', (e) => {
+            L.DomEvent.stopPropagation(e);
+            if (onSelectLocation) onSelectLocation(smartRoute.base);
+          });
+          routeGroup.addLayer(baseMarker);
+        }
 
-          if (node.type === 'base') {
-            nodeHtml = `
-              <div class="base-site-marker leaflet-custom-marker mission-base-marker">
-                <div class="base-static-ring inner"></div>
-                <div class="base-static-ring outer"></div>
-                <div class="base-pulse-ring"></div>
-                <div class="base-core-dot"></div>
-                <div class="base-callout-bubble">
-                  <div class="base-flag-circle">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
-                  </div>
-                  <div class="base-info-text">
-                    <span class="base-title-text">${node.name}</span>
-                    <span class="base-coords-text">MISSION BASE STATION</span>
-                  </div>
-                </div>
+        // Render Intermediate Waypoint Dots & Safest Transit Corridors
+        const intermediatePoints = [...(smartRoute.waypoints || []), ...(smartRoute.transitWaypoints || [])];
+        intermediatePoints.forEach((node) => {
+          const nodeHtml = `
+            <div class="smart-route-wp-node leaflet-custom-marker">
+              <div class="wp-node-pulse"></div>
+              <div class="wp-node-dot"></div>
+              <div class="wp-node-bubble">
+                <span class="wp-node-name">${node.name}</span>
               </div>
-            `;
-            iconSize = [185, 50];
-            iconAnchor = [20, 25];
-          } else if (node.type === 'objective') {
-            nodeHtml = `
-              <div class="smart-route-objective-marker leaflet-custom-marker">
-                <div class="obj-beacon-pulse"></div>
-                <div class="obj-core-dot"></div>
-                <div class="obj-callout-badge">
-                  <span class="obj-badge-tag">MISSION OBJECTIVE</span>
-                  <span class="obj-title-text">${node.name}</span>
-                </div>
-              </div>
-            `;
-            iconSize = [180, 42];
-            iconAnchor = [10, 20];
-          } else if (node.type === 'added_objective') {
-            nodeHtml = `
-              <div class="smart-route-added-objective-marker leaflet-custom-marker">
-                <div class="added-obj-pulse-ring"></div>
-                <div class="added-obj-core-dot"></div>
-                <div class="obj-callout-badge added-objective">
-                  <span class="obj-badge-tag secondary">ADDED OBJECTIVE</span>
-                  <span class="obj-title-text">${node.name}</span>
-                </div>
-              </div>
-            `;
-            iconSize = [170, 38];
-            iconAnchor = [10, 18];
-          } else {
-            // Tactical navigation corridor waypoint
-            nodeHtml = `
-              <div class="smart-route-wp-node leaflet-custom-marker">
-                <div class="wp-node-pulse"></div>
-                <div class="wp-node-dot"></div>
-                <div class="wp-node-bubble">
-                  <span class="wp-node-name">${node.name}</span>
-                </div>
-              </div>
-            `;
-            iconSize = [140, 26];
-            iconAnchor = [8, 13];
-          }
-
+            </div>
+          `;
           const nodeIcon = L.divIcon({
             className: 'leaflet-smart-node-wrapper',
             html: nodeHtml,
-            iconSize,
-            iconAnchor
+            iconSize: [140, 26],
+            iconAnchor: [8, 13]
           });
-
           const nodeMarker = L.marker([node.lat, node.lng], { icon: nodeIcon });
           nodeMarker.on('click', (e) => {
             L.DomEvent.stopPropagation(e);
-            if (onSelectLocation) {
-              onSelectLocation(node);
-            }
+            if (onSelectLocation) onSelectLocation(node);
           });
           routeGroup.addLayer(nodeMarker);
+        });
+
+        // NOTE: We do NOT render a duplicate pin for the mission objective here,
+        // because the objective IS already the landmark marker rendered above!
+
+        // Render Added Secondary Objectives (created when user clicks "Add to Route")
+        (smartRoute.addedObjectives || []).forEach((node) => {
+          const addedHtml = `
+            <div class="smart-route-added-objective-marker leaflet-custom-marker">
+              <div class="added-obj-pulse-ring"></div>
+              <div class="added-obj-core-dot"></div>
+              <div class="obj-callout-badge added-objective">
+                <span class="obj-badge-tag secondary">ADDED OBJECTIVE</span>
+                <span class="obj-title-text">${node.name}</span>
+              </div>
+            </div>
+          `;
+          const addedIcon = L.divIcon({
+            className: 'leaflet-smart-node-wrapper',
+            html: addedHtml,
+            iconSize: [170, 38],
+            iconAnchor: [10, 18]
+          });
+          const addedMarker = L.marker([node.lat, node.lng], { icon: addedIcon });
+          addedMarker.on('click', (e) => {
+            L.DomEvent.stopPropagation(e);
+            if (onSelectLocation) onSelectLocation(node);
+          });
+          routeGroup.addLayer(addedMarker);
         });
       }
     }
@@ -465,7 +514,7 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
         markersGroup.addLayer(pinMarker);
       });
     }
-  }, [activeWaypoints, selectedLocation?.id, onSelectLocation, activeMission, routeObjectives, pinnedLocations]);
+  }, [activeWaypoints, selectedLocation?.id, onSelectLocation, activeMission, routeObjectives, pinnedLocations, missionStatus, onCompleteMission, onOpenMissions]);
 
   // 5. Smoothly fly to selected location on map when selectedLocation changes (from search or clicks)
   useEffect(() => {

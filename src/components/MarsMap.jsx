@@ -116,7 +116,9 @@ export default function MarsMap({
   onOpenMissions,
   pinnedLocations = [],
   onRemovePin,
-  routeObjectives = []
+  routeObjectives = [],
+  missionStatus = 'Running',
+  onCompleteMission
 }) {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -705,6 +707,9 @@ export default function MarsMap({
             onRemovePin={onRemovePin}
             activeMission={activeMission}
             routeObjectives={routeObjectives}
+            missionStatus={missionStatus}
+            onCompleteMission={onCompleteMission}
+            onOpenMissions={onOpenMissions}
           />
         )}
       </div>

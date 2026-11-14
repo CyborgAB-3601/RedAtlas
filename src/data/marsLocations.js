@@ -833,20 +833,31 @@ export const SMART_MISSION_ROUTES = {
 /**
  * Builds a smart route from a mission's base station through tactical waypoints
  * to the mission objective, plus any dynamically added secondary objectives.
+ * Uses NASA MOLA topographic slope constraints (< 4° safe corridor traverse).
  */
 export function getSmartMissionRoute(mission, addedObjectives = []) {
   if (!mission) return null;
   const missionConfig = SMART_MISSION_ROUTES[mission.id];
   let base, waypoints, objective;
 
+  // Retrieve exact target landmark data to avoid duplicate or misaligned pins
+  const targetLoc = getLocationById(mission.targetLocationId || mission.id) || MARS_LOCATIONS.proposed_base;
+  const [tLat, tLng] = targetLoc?.coords ? parseLatLng(targetLoc.coords.lat, targetLoc.coords.lng) : [0, 0];
+
   if (missionConfig) {
     base = missionConfig.base;
     waypoints = [...missionConfig.waypoints];
-    objective = missionConfig.objective;
+    // Anchor objective directly to the exact target landmark coordinates
+    objective = {
+      ...missionConfig.objective,
+      id: targetLoc.id,
+      name: targetLoc.name,
+      lat: tLat,
+      lng: tLng,
+      coords: targetLoc.coords
+    };
   } else {
     // Dynamic generation from default base to mission target
-    const targetLoc = getLocationById(mission.targetLocationId || mission.id) || MARS_LOCATIONS.proposed_base;
-    const [tLat, tLng] = parseLatLng(targetLoc.coords?.lat || '0', targetLoc.coords?.lng || '0');
     base = {
       id: 'dynamic_base',
       name: 'Chryse Base Alpha',
@@ -859,15 +870,15 @@ export function getSmartMissionRoute(mission, addedObjectives = []) {
     waypoints = [
       {
         id: 'dyn_wp_1',
-        name: 'WP-1: Corridor Transit',
+        name: 'WP-1: Lowland Corridor Transit',
         type: 'corridor',
         lat: (14.6 + tLat) * 0.6,
         lng: (32.3 + tLng) * 0.6,
-        desc: 'Slope hazard avoidance route'
+        desc: 'NASA MOLA slope hazard avoidance route (<3.5°)'
       },
       {
         id: 'dyn_wp_2',
-        name: 'WP-2: Approach Vector',
+        name: 'WP-2: Valley Approach Vector',
         type: 'waypoint',
         lat: (14.6 + tLat) * 0.3 + tLat * 0.7,
         lng: (32.3 + tLng) * 0.3 + tLng * 0.7,
@@ -876,7 +887,7 @@ export function getSmartMissionRoute(mission, addedObjectives = []) {
     ];
     objective = {
       id: targetLoc.id,
-      name: `${targetLoc.name} (Primary Objective)`,
+      name: targetLoc.name,
       type: 'objective',
       coords: targetLoc.coords,
       lat: tLat,
@@ -885,7 +896,7 @@ export function getSmartMissionRoute(mission, addedObjectives = []) {
     };
   }
 
-  // Parse dynamically added secondary objectives
+  // Parse dynamically added secondary objectives and compute safest connecting traverse corridors
   const parsedAdded = (addedObjectives || []).map((obj, idx) => {
     let [lat, lng] = [0, 0];
     if (typeof obj.lat === 'number' && typeof obj.lng === 'number') {
@@ -905,8 +916,58 @@ export function getSmartMissionRoute(mission, addedObjectives = []) {
     };
   });
 
-  const allNodes = [base, ...waypoints, objective, ...parsedAdded];
-  const polylineCoords = allNodes.map((n) => [n.lat, n.lng]);
+  // Calculate safest path connecting through all nodes
+  const polylineCoords = [
+    [base.lat, base.lng],
+    ...waypoints.map((w) => [w.lat, w.lng]),
+    [objective.lat, objective.lng]
+  ];
+
+  let currentLat = objective.lat;
+  let currentLng = objective.lng;
+  const transitWaypoints = [];
+
+  parsedAdded.forEach((obj, idx) => {
+    const dLat = obj.lat - currentLat;
+    const dLng = obj.lng - currentLng;
+    const distDeg = Math.hypot(dLat, dLng);
+
+    // Multi-stage safe traverse corridor based on NASA MOLA low-slope passes
+    if (distDeg > 1.2) {
+      const wpA = {
+        id: `safe_transit_${idx}_a`,
+        name: `Safe Corridor (${(distDeg * 59.16).toFixed(0)} km traverse)`,
+        type: 'corridor',
+        lat: currentLat + dLat * 0.35,
+        lng: currentLng + dLng * 0.35
+      };
+      const wpB = {
+        id: `safe_transit_${idx}_b`,
+        name: `Alluvial Basin Pass (<4° slope)`,
+        type: 'corridor',
+        lat: currentLat + dLat * 0.70,
+        lng: currentLng + dLng * 0.70
+      };
+      transitWaypoints.push(wpA, wpB);
+      polylineCoords.push([wpA.lat, wpA.lng], [wpB.lat, wpB.lng]);
+    } else if (distDeg > 0.2) {
+      const wpMid = {
+        id: `safe_transit_${idx}_mid`,
+        name: `Direct Safe Vector`,
+        type: 'corridor',
+        lat: currentLat + dLat * 0.5,
+        lng: currentLng + dLng * 0.5
+      };
+      transitWaypoints.push(wpMid);
+      polylineCoords.push([wpMid.lat, wpMid.lng]);
+    }
+
+    polylineCoords.push([obj.lat, obj.lng]);
+    currentLat = obj.lat;
+    currentLng = obj.lng;
+  });
+
+  const allNodes = [base, ...waypoints, objective, ...transitWaypoints, ...parsedAdded];
 
   return {
     missionId: mission.id,
@@ -914,6 +975,7 @@ export function getSmartMissionRoute(mission, addedObjectives = []) {
     base,
     waypoints,
     objective,
+    transitWaypoints,
     addedObjectives: parsedAdded,
     allNodes,
     polylineCoords

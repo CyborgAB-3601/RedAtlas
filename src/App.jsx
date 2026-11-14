@@ -33,8 +33,9 @@ export default function App() {
   // Dynamic secondary objectives added to the active mission route
   const [routeObjectives, setRouteObjectives] = useState([]);
 
-  // Active mission scenario (default: Gale Crater Boxwork Expedition)
+  // Active mission scenario and execution status ('Running' | 'Completed')
   const [activeMission, setActiveMission] = useState(NASA_MISSIONS[0]);
+  const [missionStatus, setMissionStatus] = useState('Running');
 
   // Theme state: default to 'dark' or saved
   const [theme, setTheme] = useState(() => {
@@ -115,6 +116,7 @@ export default function App() {
 
   const handleSelectMission = (mission) => {
     setActiveMission(mission);
+    setMissionStatus('Running');
     setRouteObjectives([]); // Fresh smart route starting from base to mission objective
     handleSelectLocation(mission.targetLocationId);
     setActiveNav('Map');
@@ -239,6 +241,8 @@ export default function App() {
             pinnedLocations={activeSatellitePin ? [activeSatellitePin] : []}
             onRemovePin={handleRemovePinnedLocation}
             routeObjectives={routeObjectives}
+            missionStatus={missionStatus}
+            onCompleteMission={() => setMissionStatus((prev) => (prev === 'Running' ? 'Completed' : 'Running'))}
           />
         );
     }
@@ -281,6 +285,7 @@ export default function App() {
               activeMission={activeMission}
               onPlayVideo={() => setIsSimOpen(true)}
               onAddToRoute={() => handleToggleAddToRoute(selectedLocation)}
+              onRemoveFromRoute={(loc) => handleToggleAddToRoute(loc || selectedLocation)}
               isAddedToRoute={isLocationInRoute(selectedLocation?.id)}
               onUnmark={(loc) => {
                 const targetId = loc?.id || selectedLocation?.id;
@@ -309,6 +314,8 @@ export default function App() {
         onClose={() => setIsMissionsOpen(false)}
         activeMissionId={activeMission?.id}
         onSelectMission={handleSelectMission}
+        missionStatus={missionStatus}
+        onToggleMissionStatus={() => setMissionStatus((prev) => (prev === 'Running' ? 'Completed' : 'Running'))}
       />
 
       {/* Spacesuit AR Helmet Visor HUD Simulation Modal */}

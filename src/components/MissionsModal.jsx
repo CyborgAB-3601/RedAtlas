@@ -23,7 +23,9 @@ export default function MissionsModal({
   isOpen,
   onClose,
   activeMissionId,
-  onSelectMission
+  onSelectMission,
+  missionStatus = 'Running',
+  onToggleMissionStatus
 }) {
   const [inspectedMission, setInspectedMission] = useState(null);
 
@@ -91,6 +93,12 @@ export default function MissionsModal({
                       />
                       <span className="mission-badge-chip">{mission.badge}</span>
                       <span className="mission-sol-chip">{mission.sol}</span>
+                      {isCurrent && (
+                        <span className={`mission-status-chip ${missionStatus === 'Completed' ? 'completed' : 'running'}`}>
+                          <span className={`status-dot ${missionStatus === 'Completed' ? 'completed' : 'running'}`} />
+                          <span>{missionStatus === 'Completed' ? 'Completed' : 'Running'}</span>
+                        </span>
+                      )}
                     </div>
 
                     <div className="mission-card-content">
@@ -144,6 +152,17 @@ export default function MissionsModal({
                 <span className="pulse-blip" />
                 <span>{inspectedMission.badge} • {inspectedMission.sol}</span>
               </div>
+
+              {inspectedMission.id === activeMissionId && (
+                <button
+                  className={`briefing-status-toggle-pill ${missionStatus === 'Completed' ? 'completed' : 'running'}`}
+                  onClick={onToggleMissionStatus}
+                  title="Click to toggle status: Running / Completed"
+                >
+                  <span className={`status-dot ${missionStatus === 'Completed' ? 'completed' : 'running'}`} />
+                  <span>STATUS: {missionStatus.toUpperCase()}</span>
+                </button>
+              )}
 
               <button className="modal-close-btn" onClick={onClose} aria-label="Close modal">
                 <X size={18} />
