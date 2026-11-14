@@ -85,20 +85,25 @@
   background: var(--bg-nav-track);
   padding: 3.5px 4px;
   border-radius: var(--radius-full);
-  gap: 2px;
+  gap: 3px;
   border: 1px solid var(--border-light);
+  width: 460px;
+  max-width: 460px;
   transition: background-color 0.25s ease, border-color 0.25s ease;
 }
 
 .nav-tab-btn {
+  flex: 1;
+  justify-content: center;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-nav-inactive);
-  padding: 6px 14px;
+  padding: 6px 0;
   border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   gap: 6px;
+  text-align: center;
   transition: all 0.2s ease;
 }
 
