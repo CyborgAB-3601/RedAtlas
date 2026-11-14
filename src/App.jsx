@@ -7,12 +7,9 @@ import SearchModal from './components/SearchModal';
 import SimulationModal from './components/SimulationModal';
 import MissionsModal from './components/MissionsModal';
 import WaypointsView from './components/WaypointsView';
-import RoutesView from './components/RoutesView';
 import LayersView from './components/LayersView';
 import ConditionsView from './components/ConditionsView';
 import TerrainView from './components/TerrainView';
-import DataView from './components/DataView';
-import PlanningView from './components/PlanningView';
 import ResourcesView from './components/ResourcesView';
 import {
   MARS_LOCATIONS,
@@ -152,7 +149,7 @@ export default function App() {
     }
     setActiveNav(navItem);
     // If user clicked Map, return to current sidebar section
-    if (navItem === 'Map' && !['Overview', 'Waypoints', 'Routes', 'Layers', 'Conditions', '3D Terrain'].includes(activeSection)) {
+    if (navItem === 'Map' && !['Overview', 'Waypoints', 'Layers', 'Conditions', '3D Terrain'].includes(activeSection)) {
       setActiveSection('Overview');
     }
   };
@@ -201,12 +198,6 @@ export default function App() {
               onSelectWaypoint={(wp) => handleSelectLocation(wp.locationId)}
               onOpenHUD={() => setIsSimOpen(true)}
             />
-          </div>
-        );
-      case 'Routes':
-        return (
-          <div className="center-page-card custom-scrollbar">
-            <RoutesView onOpenHUD={() => setIsSimOpen(true)} />
           </div>
         );
       case 'Layers':

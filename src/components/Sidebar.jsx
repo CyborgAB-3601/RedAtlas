@@ -2,7 +2,6 @@ import React from 'react';
 import {
   SlidersHorizontal,
   MapPin,
-  Route as RouteIcon,
   Layers,
   CloudSun,
   Mountain,
@@ -13,7 +12,6 @@ export default function Sidebar({ activeSection, setActiveSection, onExploreProm
   const menuItems = [
     { id: 'Overview', label: 'Overview', icon: SlidersHorizontal },
     { id: 'Waypoints', label: 'Waypoints', icon: MapPin },
-    { id: 'Routes', label: 'Routes', icon: RouteIcon },
     { id: 'Layers', label: 'Layers', icon: Layers },
     { id: 'Conditions', label: 'Conditions', icon: CloudSun },
     { id: '3D Terrain', label: '3D Terrain', icon: Mountain },

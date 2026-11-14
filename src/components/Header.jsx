@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Map, Rocket, BarChart2, Calendar, Layers, Sun, Moon } from 'lucide-react';
+import { Search, Map, Rocket, Layers, Sun, Moon } from 'lucide-react';
 
 export default function Header({ activeNav, setActiveNav, onSearchClick, theme, toggleTheme }) {
   const [marsTime, setMarsTime] = useState({ hours: 14, minutes: 32, seconds: 11 });
@@ -32,8 +32,6 @@ export default function Header({ activeNav, setActiveNav, onSearchClick, theme, 
   const navItems = [
     { name: 'Map', icon: Map },
     { name: 'Missions', icon: Rocket },
-    { name: 'Data', icon: BarChart2 },
-    { name: 'Planning', icon: Calendar },
     { name: 'Resources', icon: Layers }
   ];
 
