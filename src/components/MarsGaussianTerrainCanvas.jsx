@@ -483,6 +483,8 @@ export default function MarsGaussianTerrainCanvas({
   const [pinProbeActive, setPinProbeActive] = useState(true);
   const [hoverElevation, setHoverElevation] = useState(null); // { x, y, z, lat, lng, elevM, slopeDeg }
   const [hoveredCustomPin, setHoveredCustomPin] = useState(null); // custom pin under hover
+  const isHoveringCardRef = useRef(false);
+  const cardLeaveTimeoutRef = useRef(null);
   const [autoRotate, setAutoRotate] = useState(false);
   const [cameraPreset, setCameraPreset] = useState('orbit');
   const [elevationStats, setElevationStats] = useState({ minM: -2450, maxM: 1200, reliefM: 3650 });
@@ -818,6 +820,13 @@ export default function MarsGaussianTerrainCanvas({
       const sphere = new THREE.Mesh(sphereGeom, sphereMat);
       pinGroup.add(sphere);
 
+      // Invisible enlarged hover/click hit sphere (radius 1.8) so user can effortlessly hover & click the pin
+      const hitGeom = new THREE.SphereGeometry(1.8, 12, 12);
+      hitGeom.translate(0, 3.2, 0);
+      const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+      const hitSphere = new THREE.Mesh(hitGeom, hitMat);
+      pinGroup.add(hitSphere);
+
       // Red Ground Rings
       const ringGeom = new THREE.RingGeometry(0.4, 0.9, 24);
       ringGeom.rotateX(-Math.PI / 2);
@@ -959,6 +968,11 @@ export default function MarsGaussianTerrainCanvas({
       if (customGroup && customGroup.children.length > 0) {
         const pinIntersects = raycaster.intersectObjects(customGroup.children, true);
         if (pinIntersects.length > 0) {
+          // Cancel any pending card close timer
+          if (cardLeaveTimeoutRef.current) {
+            clearTimeout(cardLeaveTimeoutRef.current);
+            cardLeaveTimeoutRef.current = null;
+          }
           // Find root pin group
           let cur = pinIntersects[0].object;
           while (cur && cur.parent !== customGroup) {
@@ -977,7 +991,20 @@ export default function MarsGaussianTerrainCanvas({
         }
       }
 
-      setHoveredCustomPin(null);
+      // If user is currently hovering directly over the card popup, don't dismiss it!
+      if (isHoveringCardRef.current) {
+        return;
+      }
+
+      // Add a slight grace period (400ms) when moving off the pin so user can glide cursor into the card
+      if (!cardLeaveTimeoutRef.current) {
+        cardLeaveTimeoutRef.current = setTimeout(() => {
+          if (!isHoveringCardRef.current) {
+            setHoveredCustomPin(null);
+          }
+          cardLeaveTimeoutRef.current = null;
+        }, 400);
+      }
 
       if (!pinProbeActive) {
         if (hoverPinGroupRef.current) hoverPinGroupRef.current.visible = false;
@@ -1756,6 +1783,17 @@ export default function MarsGaussianTerrainCanvas({
               top: Math.max(16, hoveredCustomPin.screenY - 110),
               pointerEvents: 'auto'
             }}
+            onMouseEnter={() => {
+              isHoveringCardRef.current = true;
+              if (cardLeaveTimeoutRef.current) {
+                clearTimeout(cardLeaveTimeoutRef.current);
+                cardLeaveTimeoutRef.current = null;
+              }
+            }}
+            onMouseLeave={() => {
+              isHoveringCardRef.current = false;
+              setHoveredCustomPin(null);
+            }}
           >
             <div className="probe-tooltip-header">
               <div className="marked-header-left">
@@ -1770,6 +1808,7 @@ export default function MarsGaussianTerrainCanvas({
                   setLocalPinnedLocations((prev) => prev.filter((p) => p.id !== targetId));
                   if (onRemovePin) onRemovePin(targetId);
                   setHoveredCustomPin(null);
+                  isHoveringCardRef.current = false;
                 }}
                 title="Remove Pin"
               >
