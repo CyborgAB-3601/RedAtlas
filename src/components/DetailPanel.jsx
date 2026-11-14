@@ -12,6 +12,7 @@ import {
 
 export default function DetailPanel({
   locationData,
+  activeMission,
   onPlayVideo,
   onAddToRoute,
   isAddedToRoute
@@ -66,7 +67,9 @@ export default function DetailPanel({
         <div className="preview-text-content">
           <h2 className="preview-title">{activeLoc.name}</h2>
           <p className="preview-subtitle">
-            {activeLoc.subtitle || 'A potential location for future exploration and research.'}
+            {activeMission?.targetLocationId === activeLoc.id
+              ? activeMission.objective
+              : (activeLoc.subtitle || 'A potential location for future exploration and research.')}
           </p>
         </div>
 
@@ -158,20 +161,26 @@ export default function DetailPanel({
           <div className="tab-content-area">
             <div className="tab-text-info">
               <p className="tab-paragraph">
-                The rim slope is approximately 14° with loose regolith and basaltic basaltic scree. Center floor is dominated by fine sand dunes with a thickness of 0.4 - 1.2 meters.
+                {activeLoc.terrain?.summary || (activeMission?.targetLocationId === activeLoc.id
+                  ? `Terrain mobility envelope calculated for ${activeMission.name}. Slope max ${activeMission.maxSlope} with pre-cleared rover wheel tracks.`
+                  : activeLoc.desc)}
               </p>
               <div className="terrain-metrics-list">
                 <div className="metric-row">
                   <span>Surface Roughness</span>
-                  <strong>0.18 (Smooth)</strong>
+                  <strong>{activeLoc.terrain?.roughness || '0.18 (Smooth)'}</strong>
                 </div>
                 <div className="metric-row">
-                  <span>Slope Variance</span>
-                  <strong>&lt; 3.2 degrees</strong>
+                  <span>Max Incline Grade</span>
+                  <strong>{activeLoc.terrain?.maxSlope || (activeMission?.targetLocationId === activeLoc.id ? activeMission.maxSlope : '< 3.5°')}</strong>
                 </div>
                 <div className="metric-row">
-                  <span>Bedrock Stability</span>
-                  <strong>High (Compact Basalt)</strong>
+                  <span>Traverse Limit</span>
+                  <strong>{activeLoc.terrain?.traverseLimit || (activeMission?.targetLocationId === activeLoc.id ? activeMission.distanceTraverse : '4.5 km')}</strong>
+                </div>
+                <div className="metric-row">
+                  <span>Elevation Datum</span>
+                  <strong>{activeLoc.coords?.elev || activeLoc.elevationVal || '-2,450 m'}</strong>
                 </div>
               </div>
             </div>
@@ -183,20 +192,26 @@ export default function DetailPanel({
           <div className="tab-content-area">
             <div className="tab-text-info">
               <p className="tab-paragraph">
-                Gamma ray spectrometer indicates high hydrogen concentration, pointing to rich buried water ice deposits within 1.5m depth.
+                {activeLoc.resources?.summary || (activeMission?.targetLocationId === activeLoc.id
+                  ? `Primary geological targets identified by ${activeMission.leadInstrument}: ${activeMission.primaryMineral}.`
+                  : activeLoc.desc)}
               </p>
               <div className="terrain-metrics-list">
                 <div className="metric-row">
-                  <span>Water Ice Est.</span>
-                  <strong>14.2% by volume</strong>
+                  <span>Primary Mineral</span>
+                  <strong>{activeLoc.resources?.primaryMineral || (activeMission?.targetLocationId === activeLoc.id ? activeMission.primaryMineral : (activeLoc.rockType || 'Basaltic Regolith'))}</strong>
                 </div>
                 <div className="metric-row">
-                  <span>Silicon Oxides</span>
-                  <strong>44.8%</strong>
+                  <span>Lead Instrument</span>
+                  <strong>{activeLoc.resources?.leadInstrument || (activeMission?.targetLocationId === activeLoc.id ? activeMission.leadInstrument : 'CRISM & ChemCam')}</strong>
                 </div>
                 <div className="metric-row">
-                  <span>Iron Oxides</span>
-                  <strong>18.4%</strong>
+                  <span>Water Hydration</span>
+                  <strong>{activeLoc.resources?.waterHydration || activeLoc.waterIce || 'High probability'}</strong>
+                </div>
+                <div className="metric-row">
+                  <span>ISRU Potential</span>
+                  <strong>{activeLoc.resources?.isruPotential || 'High (Base Feed)'}</strong>
                 </div>
               </div>
             </div>
@@ -208,16 +223,26 @@ export default function DetailPanel({
           <div className="tab-content-area">
             <div className="tab-text-info">
               <p className="tab-paragraph">
-                Radiation levels measured at 240 µSv/day under direct exposure. Crater ridge provides 34% shielding against cosmic radiation.
+                {activeLoc.hazards?.summary || (activeMission?.targetLocationId === activeLoc.id
+                  ? `Environmental hazard analysis: ${activeMission.radiationEnv}. Overall mission safety risk level is ${activeMission.riskLevel}.`
+                  : 'Surface radiation and atmospheric parameters monitored in real time.')}
               </p>
               <div className="terrain-metrics-list">
                 <div className="metric-row">
-                  <span>Thermal Swings</span>
-                  <strong>-88°C to -12°C</strong>
+                  <span>Radiation Ambient</span>
+                  <strong>{activeLoc.hazards?.radiationLevel || (activeMission?.targetLocationId === activeLoc.id ? activeMission.radiationEnv.slice(0, 14) : '0.21 mSv/day')}</strong>
                 </div>
                 <div className="metric-row">
-                  <span>Dust Storm Risk</span>
-                  <strong>Low (Sheltered Basin)</strong>
+                  <span>Safety Risk Level</span>
+                  <strong>{activeLoc.hazards?.riskLevel || (activeMission?.targetLocationId === activeLoc.id ? activeMission.riskLevel : 'Low (Sheltered)')}</strong>
+                </div>
+                <div className="metric-row">
+                  <span>Thermal Swings</span>
+                  <strong>{activeLoc.hazards?.thermalSwings || '-84°C to -15°C'}</strong>
+                </div>
+                <div className="metric-row">
+                  <span>Atmospheric Pressure</span>
+                  <strong>{activeLoc.hazards?.atmosphericPressure || '620 Pa (Nominal)'}</strong>
                 </div>
               </div>
             </div>

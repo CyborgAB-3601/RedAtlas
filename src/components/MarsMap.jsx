@@ -1,4 +1,7 @@
 import React, { useState, useRef } from 'react';
+import Mars3DGlobe from './Mars3DGlobe';
+import MarsTrekTiledLayer from './MarsTrekTiledLayer';
+import MarsTrekLeafletMap from './MarsTrekLeafletMap';
 import {
   Compass,
   Plus,
@@ -57,7 +60,9 @@ export default function MarsMap({
   viewMode,
   setViewMode,
   isExpanded = false,
-  onToggleExpand
+  onToggleExpand,
+  activeMission,
+  onOpenMissions
 }) {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -69,11 +74,45 @@ export default function MarsMap({
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isDestinationSet, setIsDestinationSet] = useState(false);
 
+  // Leaflet official Mars Trek slippy map ref
+  const leafletRef = useRef(null);
+
   // Swipeable & draggable tags track refs and event handlers
   const tagsTrackRef = useRef(null);
   const isDraggingTags = useRef(false);
   const startXTags = useRef(0);
   const scrollLeftTags = useRef(0);
+
+  // Viewport container measurement ref for high-res WMTS tiling
+  const mapViewportRef = useRef(null);
+  const [viewportDims, setViewportDims] = useState({ width: 1000, height: 600 });
+
+  React.useEffect(() => {
+    const updateDims = () => {
+      if (mapViewportRef.current) {
+        setViewportDims({
+          width: mapViewportRef.current.clientWidth || 1000,
+          height: mapViewportRef.current.clientHeight || 600
+        });
+      }
+    };
+    updateDims();
+    window.addEventListener('resize', updateDims);
+    return () => window.removeEventListener('resize', updateDims);
+  }, []);
+
+  // Smooth wheel zoom with non-passive event listener
+  React.useEffect(() => {
+    const el = mapViewportRef.current;
+    if (!el) return;
+    const onWheelHandler = (e) => {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 0.25 : -0.25;
+      setZoomLevel((prev) => Math.min(Math.max(parseFloat((prev + delta).toFixed(2)), 0.8), 5.0));
+    };
+    el.addEventListener('wheel', onWheelHandler, { passive: false });
+    return () => el.removeEventListener('wheel', onWheelHandler);
+  }, []);
 
   const handleTagsMouseDown = (e) => {
     isDraggingTags.current = true;
@@ -285,6 +324,178 @@ export default function MarsMap({
     C 810 375, 775 390, 750 402
   `;
 
+  // Regional configuration profiles for official NASA perspectives
+  const REGIONAL_CONFIGS = {
+    'Mars Global View': {
+      title: 'Mars',
+      subtitle: 'EXPLORE THE SURFACE, PLAN YOUR MISSIONS, AND IDENTIFY THE BEST LOCATIONS FOR FUTURE EXPLORATION.',
+      scaleTicks: ['0', '100', '200', '300 KM'],
+      defaultZoom: 1.0,
+      defaultPan: { x: 0, y: 0 }
+    },
+    'Equatorial Basin': {
+      title: 'Equatorial Basin',
+      subtitle: 'EQUATORIAL CANYON & DELTA LOWLANDS: VALLES MARINERIS CHASMATA & JEZERO PALEOLAKE BASIN.',
+      scaleTicks: ['0', '25', '50', '100 KM'],
+      defaultZoom: 1.65,
+      defaultPan: { x: -80, y: -25 }
+    },
+    'Polar Ice Caps': {
+      title: 'Polar Ice Caps',
+      subtitle: 'POLAR LAYERED DEPOSITS: PLANUM BOREUM WATER-ICE SHEETS, KOROLEV ICE LAKE & CRYOGENIC CO2.',
+      scaleTicks: ['0', '50', '100', '150 KM'],
+      defaultZoom: 1.75,
+      defaultPan: { x: -10, y: 150 }
+    },
+    'Tharsis Rise': {
+      title: 'Tharsis Rise',
+      subtitle: 'THARSIS VOLCANIC PROVINCE: OLYMPUS MONS (21.3 KM), CALDERA RIM & SHIELDED LAVA TUBES.',
+      scaleTicks: ['0', '50', '100', '200 KM'],
+      defaultZoom: 1.75,
+      defaultPan: { x: 190, y: -20 }
+    }
+  };
+
+  const regionalWaypointsMap = {
+    'Mars Global View': normalWaypoints,
+    'Equatorial Basin': [
+      {
+        id: 'valles',
+        name: 'Valles Marineris',
+        coords: '14.0° S, 59.3° W',
+        elev: '-7,000 m',
+        x: 31.0,
+        y: 48.0,
+        type: 'waypoint',
+        tag: 'Canyon Chasm'
+      },
+      {
+        id: 'proposed_base',
+        name: 'Proposed Base Site',
+        coords: '14.6° N, 32.3° E',
+        elev: '-2,450 m',
+        x: 47.0,
+        y: 38.5,
+        type: 'base',
+        isBase: true,
+        tag: 'Primary Habitat'
+      },
+      {
+        id: 'jezero',
+        name: 'Jezero Crater (Delta)',
+        coords: '18.4° N, 77.6° E',
+        elev: '-2,500 m',
+        x: 62.0,
+        y: 50.0,
+        type: 'waypoint',
+        tag: 'River Delta'
+      },
+      {
+        id: 'gale',
+        name: 'Gale Crater (Mount Sharp)',
+        coords: '5.4° S, 137.8° E',
+        elev: '-4,500 m',
+        x: 54.0,
+        y: 62.0,
+        type: 'waypoint',
+        tag: 'Boxwork Ridge'
+      }
+    ],
+    'Polar Ice Caps': [
+      {
+        id: 'planum_boreum',
+        name: 'Planum Boreum',
+        coords: '85.0° N, 0.0° E',
+        elev: '-2,100 m',
+        x: 48.0,
+        y: 22.0,
+        type: 'base',
+        isBase: true,
+        tag: 'North Polar Cap'
+      },
+      {
+        id: 'korolev',
+        name: 'Korolev Ice Crater',
+        coords: '73.0° N, 165.0° E',
+        elev: '-3,900 m',
+        x: 64.0,
+        y: 32.0,
+        type: 'waypoint',
+        tag: '1.8km Ice Dome'
+      },
+      {
+        id: 'proposed_base',
+        name: 'Chryse Sub-Polar Post',
+        coords: '14.6° N, 32.3° E',
+        elev: '-2,450 m',
+        x: 36.0,
+        y: 46.0,
+        type: 'waypoint',
+        tag: 'Relay Link'
+      }
+    ],
+    'Tharsis Rise': [
+      {
+        id: 'olympus',
+        name: 'Olympus Mons',
+        coords: '18.7° N, 133.8° W',
+        elev: '21,287 m',
+        x: 26.0,
+        y: 34.0,
+        type: 'base',
+        isBase: true,
+        tag: 'Shield Volcano'
+      },
+      {
+        id: 'ascraeus',
+        name: 'Ascraeus Mons',
+        coords: '11.9° N, 104.5° W',
+        elev: '18,225 m',
+        x: 44.0,
+        y: 45.0,
+        type: 'waypoint',
+        tag: 'Tharsis Triad'
+      },
+      {
+        id: 'tharsis_tubes',
+        name: 'Lava Tube Skylights',
+        coords: '14.2° N, 112.8° W',
+        elev: '6,400 m',
+        x: 36.0,
+        y: 54.0,
+        type: 'waypoint',
+        tag: 'Subsurface Vault'
+      }
+    ]
+  };
+
+  const activeWaypoints = regionalWaypointsMap[globalView] || normalWaypoints;
+  const currentRegion = REGIONAL_CONFIGS[globalView] || REGIONAL_CONFIGS['Mars Global View'];
+
+  const getMapImageSrc = () => {
+    if (viewMode === 'Elevation') return '/assets/nasa_jpl_marstrek_elevation.jpg';
+    if (viewMode === 'Thermal') return '/assets/nasa_themis_thermal_global.jpg';
+    // Official NASA JPL Mars Trek Viking MDIM 2.1 Color Satellite Mosaic (2048x1024)
+    return '/assets/nasa_jpl_marstrek_satellite.jpg';
+  };
+
+  const getNasaAttribution = () => {
+    if (viewMode === 'Elevation') return 'NASA MGS MOLA LASER ALTIMETER (463m/px DEM)';
+    if (viewMode === 'Thermal') return 'NASA 2001 MARS ODYSSEY THEMIS IR MOSAIC (100m/px)';
+    if (viewMode === '3D') return 'NASA JPL MARS TREK 3D SPHERICAL GLOBE (VIKING / MOLA / THEMIS)';
+    return 'NASA VIKING MDIM 2.1 / HiRISE GLOBAL MOSAIC (232m/px)';
+  };
+
+  const handleSelectRegion = (viewName) => {
+    setGlobalView(viewName);
+    setIsGlobalDropdownOpen(false);
+    const cfg = REGIONAL_CONFIGS[viewName];
+    if (cfg) {
+      setZoomLevel(cfg.defaultZoom);
+      setPan(cfg.defaultPan);
+    }
+  };
+
   const handleMouseDown = (e) => {
     setIsDragging(true);
     setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
@@ -301,12 +512,33 @@ export default function MarsMap({
   const handleMouseUp = () => setIsDragging(false);
 
   const handleZoom = (delta) => {
-    setZoomLevel((prev) => Math.min(Math.max(prev + delta, 0.8), 2.5));
+    if (viewMode === '3D') {
+      setZoomLevel((prev) => Math.min(Math.max(parseFloat((prev + delta).toFixed(2)), 0.8), 5.0));
+    } else {
+      if (delta > 0) {
+        leafletRef.current?.zoomIn();
+      } else {
+        leafletRef.current?.zoomOut();
+      }
+    }
   };
 
+  const dynamicScaleTicks = React.useMemo(() => {
+    if (zoomLevel >= 4.0) return ['0', '5', '10', '15 KM'];
+    if (zoomLevel >= 3.0) return ['0', '10', '20', '30 KM'];
+    if (zoomLevel >= 2.0) return ['0', '25', '50', '75 KM'];
+    if (zoomLevel >= 1.4) return ['0', '50', '100', '150 KM'];
+    return currentRegion.scaleTicks;
+  }, [zoomLevel, currentRegion.scaleTicks]);
+
   const resetView = () => {
-    setZoomLevel(1);
-    setPan({ x: 0, y: 0 });
+    if (viewMode === '3D') {
+      const cfg = REGIONAL_CONFIGS[globalView] || REGIONAL_CONFIGS['Mars Global View'];
+      setZoomLevel(cfg.defaultZoom);
+      setPan(cfg.defaultPan);
+    } else {
+      leafletRef.current?.resetView();
+    }
   };
 
   const dockTools = [
@@ -324,169 +556,37 @@ export default function MarsMap({
       {/* ---------------- NORMAL ORBITAL MAP VIEW ---------------- */}
       {!isExpanded && (
         <>
-          <div
-            className="mars-map-viewport"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-          >
-            <div
-              className="mars-map-layer-wrap"
-              style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoomLevel})`,
-                transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-              }}
-            >
-              <img
-                src="/assets/mars_orbital_map.jpg"
-                alt="Mars Surface Orbital View"
-                className={`mars-orbital-img ${viewMode === 'Thermal' ? 'filter-thermal' : ''} ${viewMode === 'Elevation' ? 'filter-elevation' : ''}`}
-                draggable={false}
+          {/* 3D Interactive View Mode: NASA JPL Mars Trek 3D Globe */}
+          {viewMode === '3D' ? (
+            <div className="nasa-3d-frame-container animate-fade-in">
+              <Mars3DGlobe
+                selectedLocation={selectedLocation}
+                onSelectLocation={onSelectLocation}
+                globalView={globalView}
+                viewMode={viewMode}
+                zoomLevel={zoomLevel}
               />
-
-              <div className="mars-atmosphere-glow" />
-
-              <svg
-                className="route-svg-overlay"
-                viewBox="0 0 1000 600"
-                preserveAspectRatio="none"
-              >
-                <defs>
-                  <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="3" result="blur" />
-                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                  </filter>
-                  <linearGradient id="routeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="rgba(255, 255, 255, 0.45)" />
-                    <stop offset="50%" stopColor="rgba(255, 255, 255, 0.98)" />
-                    <stop offset="100%" stopColor="rgba(255, 255, 255, 0.55)" />
-                  </linearGradient>
-                </defs>
-
-                {/* Dark Shadow Path */}
-                <path
-                  d={svgPathData}
-                  fill="none"
-                  stroke="rgba(0, 0, 0, 0.45)"
-                  strokeWidth="3.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-
-                {/* Dotted White Route Curve */}
-                <path
-                  d={svgPathData}
-                  fill="none"
-                  stroke="url(#routeGradient)"
-                  strokeWidth="2.2"
-                  strokeDasharray="4 6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="route-animated-path"
-                  filter="url(#glow)"
-                />
-
-                {/* Intermediate Station Dots on the Route */}
-                {routePoints.map((pt, idx) => {
-                  if (pt.isNamed) return null;
-                  return (
-                    <g key={idx} className="route-intermediate-point">
-                      <circle
-                        cx={pt.x * 10}
-                        cy={pt.y * 6}
-                        r="4.5"
-                        fill="rgba(255, 255, 255, 0.22)"
-                      />
-                      <circle
-                        cx={pt.x * 10}
-                        cy={pt.y * 6}
-                        r="2.5"
-                        fill="#FFFFFF"
-                        stroke="rgba(0, 0, 0, 0.55)"
-                        strokeWidth="0.8"
-                      />
-                    </g>
-                  );
-                })}
-              </svg>
-
-              {normalWaypoints.map((wp) => {
-                const isSelected = selectedLocation?.id === wp.id;
-                if (wp.isBase) {
-                  return (
-                    <div
-                      key={wp.id}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Select ${wp.name}`}
-                      className={`base-site-marker ${isSelected ? 'selected' : ''}`}
-                      style={{ left: `${wp.x}%`, top: `${wp.y}%` }}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectLocation(wp);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          onSelectLocation(wp);
-                        }
-                      }}
-                    >
-                      <div className="base-static-ring inner" />
-                      <div className="base-static-ring outer" />
-                      <div className="base-pulse-ring" />
-                      <div className="base-core-dot" />
-                      <div className="base-callout-bubble">
-                        <div className="base-flag-circle">
-                          <Flag size={11} className="base-flag-svg" />
-                        </div>
-                        <div className="base-info-text">
-                          <span className="base-title-text">{wp.name}</span>
-                          <span className="base-coords-text">{wp.coords}</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div
-                    key={wp.id}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Select ${wp.name}`}
-                    className={`waypoint-marker standard-marker ${isSelected ? 'selected' : ''}`}
-                    style={{ left: `${wp.x}%`, top: `${wp.y}%` }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectLocation(wp);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        onSelectLocation(wp);
-                      }
-                    }}
-                  >
-                    <div className="waypoint-dot-outer">
-                      <div className="waypoint-dot-inner" />
-                    </div>
-                    <span className="waypoint-label">{wp.name}</span>
-                  </div>
-                );
-              })}
             </div>
-          </div>
+          ) : (
+            <div className="mars-map-viewport">
+              <MarsTrekLeafletMap
+                ref={leafletRef}
+                viewMode={viewMode}
+                globalView={globalView}
+                selectedLocation={selectedLocation}
+                onSelectLocation={onSelectLocation}
+                onZoomChange={(newZoom) => setZoomLevel(newZoom)}
+                activeWaypoints={activeWaypoints}
+              />
+            </div>
+          )}
 
-          {/* Top Left Title Overlay */}
+          {/* Top Left Title Overlay with Dynamic Region & NASA Subtitle */}
           <div className="map-top-left-overlay">
             <span className="map-index-badge">04</span>
-            <h1 className="map-main-title">Mars</h1>
+            <h1 className="map-main-title">{currentRegion.title}</h1>
             <p className="map-description">
-              EXPLORE THE SURFACE, PLAN YOUR MISSIONS, AND IDENTIFY THE BEST LOCATIONS FOR FUTURE EXPLORATION.
+              {currentRegion.subtitle}
             </p>
           </div>
 
@@ -530,10 +630,7 @@ export default function MarsMap({
                     <div
                       key={view}
                       className={`dropdown-item ${globalView === view ? 'selected' : ''}`}
-                      onClick={() => {
-                        setGlobalView(view);
-                        setIsGlobalDropdownOpen(false);
-                      }}
+                      onClick={() => handleSelectRegion(view)}
                     >
                       {view}
                     </div>
@@ -544,10 +641,9 @@ export default function MarsMap({
 
             <div className="map-scale-bar-container">
               <div className="scale-ticks">
-                <span className="tick-label">0</span>
-                <span className="tick-label">100</span>
-                <span className="tick-label">200</span>
-                <span className="tick-label">300 KM</span>
+                {dynamicScaleTicks.map((tick, idx) => (
+                  <span key={idx} className="tick-label">{tick}</span>
+                ))}
               </div>
               <div className="scale-line">
                 <div className="tick-mark" style={{ left: '0%' }} />
@@ -560,7 +656,7 @@ export default function MarsMap({
 
           {/* Right Map Overlay Controls (Compass & Zoom) */}
           <div className="map-right-controls-overlay">
-            <div className="compass-dial" title="North Alignment">
+            <div className="compass-dial" onClick={resetView} title="Reset North Alignment & Perspective" role="button" tabIndex={0}>
               <Compass size={22} className="compass-icon" />
               <span className="compass-north-letter">N</span>
             </div>
