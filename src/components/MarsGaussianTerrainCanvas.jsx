@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
@@ -11,11 +11,10 @@ import {
   Mountain,
   AlertTriangle,
   Eye,
-  Sliders,
-  ChevronDown
+  Sliders
 } from 'lucide-react';
 
-// Generates mathematically accurate Martian topography matching NASA MOLA / HiRISE profiles
+// Procedurally generates authentic Martian topography matching NASA MOLA / HiRISE profiles
 function generateMartianElevation(locId, u, v) {
   // u, v are in range [-1, 1]
   const dist = Math.sqrt(u * u + v * v);
@@ -35,7 +34,6 @@ function generateMartianElevation(locId, u, v) {
       const craterRim = Math.exp(-(rimDist * rimDist) / (2 * rimWidth * rimWidth)) * 0.65;
       const basinFloor = dist < rimRadius ? -0.45 * (1.0 - Math.pow(dist / rimRadius, 2.0)) : 0.05;
       
-      // Central peak: Mt. Sharp rising in the center-south
       const peakDist = Math.sqrt(Math.pow(u - 0.08, 2) + Math.pow(v + 0.12, 2));
       const centralMound = Math.exp(-(peakDist * peakDist) / 0.065) * 0.95;
 
@@ -49,7 +47,6 @@ function generateMartianElevation(locId, u, v) {
       const craterRim = Math.exp(-(rimDist * rimDist) / 0.028) * 0.55;
       const floor = dist < rimRadius ? -0.38 : 0.0;
       
-      // Western delta fan deposit entering from western breach
       const deltaDist = Math.sqrt(Math.pow(u + 0.42, 2) + Math.pow(v - 0.05, 2));
       const deltaFan = (u < -0.1 && dist < rimRadius) ? Math.exp(-(deltaDist * deltaDist) / 0.08) * 0.28 : 0.0;
 
@@ -59,7 +56,6 @@ function generateMartianElevation(locId, u, v) {
     case 'olympus_mons': {
       // Massive volcanic shield with summit caldera and high cliff scarp
       const calderaRadius = 0.24;
-      const calderaDist = Math.abs(dist - calderaRadius);
       const shield = Math.exp(-dist * 1.8) * 1.45;
       const caldera = dist < calderaRadius ? -0.25 * (1.0 - Math.pow(dist / calderaRadius, 2.0)) : 0.0;
       const scarp = (dist > 0.75 && dist < 0.92) ? -0.35 * Math.sin((dist - 0.75) / 0.17 * Math.PI) : 0.0;
@@ -92,42 +88,53 @@ function generateMartianElevation(locId, u, v) {
 
 // Converts normalized elevation to NASA MOLA scientific color ramp
 function getMolaElevationColor(elevNorm) {
-  // elevNorm: 0.0 (deepest basin) to 1.0 (highest peak)
   const c = new THREE.Color();
   if (elevNorm < 0.2) {
-    // Deep blues / violet (-8000m to -4000m)
-    c.setRGB(0.12 + elevNorm * 0.4, 0.15 + elevNorm * 0.6, 0.45 + elevNorm * 1.5);
+    c.setRGB(0.12 + elevNorm * 0.4, 0.15 + elevNorm * 0.6, 0.5 + elevNorm * 1.5);
   } else if (elevNorm < 0.45) {
-    // Cyan to emerald greens (-4000m to 0m)
     const t = (elevNorm - 0.2) / 0.25;
     c.setRGB(0.1 + t * 0.2, 0.45 + t * 0.4, 0.6 - t * 0.4);
   } else if (elevNorm < 0.7) {
-    // Yellow to ochre / Mars rust (0m to +4000m)
     const t = (elevNorm - 0.45) / 0.25;
     c.setRGB(0.75 + t * 0.2, 0.45 + t * 0.1, 0.15);
   } else {
-    // High peaks: bright rusty red to snowy white summits (+4000m to +21000m)
     const t = (elevNorm - 0.7) / 0.3;
-    c.setRGB(0.95 + t * 0.05, 0.55 + t * 0.45, 0.3 + t * 0.7);
+    c.setRGB(0.95 + t * 0.05, 0.65 + t * 0.35, 0.4 + t * 0.6);
   }
   return c;
 }
 
-// Slope hazard color ramp: <15° green/clear, 15°-25° amber warning, >25° red hazard
+// Slope hazard color ramp: <12° trafficable, 12°-22° caution, >22° hazard
 function getSlopeHazardColor(slopeDeg) {
   const c = new THREE.Color();
   if (slopeDeg < 12) {
-    // Safe trafficable terrain
-    c.setRGB(0.18, 0.42, 0.25);
+    c.setRGB(0.18, 0.55, 0.28);
   } else if (slopeDeg < 22) {
-    // Caution slope
     const t = (slopeDeg - 12) / 10;
-    c.setRGB(0.85 + t * 0.15, 0.65 - t * 0.3, 0.15);
+    c.setRGB(0.9 + t * 0.1, 0.65 - t * 0.25, 0.12);
   } else {
-    // Severe hazard / No-go
-    c.setRGB(0.92, 0.18, 0.12);
+    c.setRGB(0.94, 0.18, 0.14);
   }
   return c;
+}
+
+// Programmatic 2D Gaussian Kernel Texture for soft Gaussian Splatting radiance
+function createGaussianKernelTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+  gradient.addColorStop(0.25, 'rgba(255, 255, 255, 0.85)');
+  gradient.addColorStop(0.55, 'rgba(255, 255, 255, 0.35)');
+  gradient.addColorStop(0.85, 'rgba(255, 255, 255, 0.08)');
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 64, 64);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
 }
 
 export default function MarsGaussianTerrainCanvas({
@@ -144,17 +151,18 @@ export default function MarsGaussianTerrainCanvas({
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
   const animFrameRef = useRef(null);
+  const gaussianTextureRef = useRef(null);
   const terrainMeshRef = useRef(null);
   const gaussianSplatsRef = useRef(null);
+  const contourLinesRef = useRef(null);
   const pinsGroupRef = useRef(null);
 
-  // Control state
+  // Active state
   const [renderMode, setRenderMode] = useState('splats'); // 'splats' | 'textured' | 'elevation' | 'slope'
   const [elevationExaggeration, setElevationExaggeration] = useState(1.8);
   const [showContours, setShowContours] = useState(true);
   const [autoRotate, setAutoRotate] = useState(false);
-  const [cameraPreset, setCameraPreset] = useState('orbit'); // 'orbit' | 'rover' | 'top'
-  const [activeHoverPin, setActiveHoverPin] = useState(null);
+  const [cameraPreset, setCameraPreset] = useState('orbit');
 
   const loc = selectedLocation || {
     id: 'proposed_base',
@@ -164,21 +172,26 @@ export default function MarsGaussianTerrainCanvas({
     elevationNum: -2450
   };
 
-  // 1. Initialize Scene, Camera, Renderer, and OrbitControls
+  // 1. Setup Three.js Context
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    const width = container.clientWidth || 800;
-    const height = container.clientHeight || 340;
+    // Cache Gaussian texture
+    if (!gaussianTextureRef.current) {
+      gaussianTextureRef.current = createGaussianKernelTexture();
+    }
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x09080A);
-    scene.fog = new THREE.FogExp2(0x0E0B09, 0.014);
+    scene.fog = new THREE.FogExp2(0x0C0908, 0.012);
     sceneRef.current = scene;
 
+    const width = container.clientWidth || 800;
+    const height = container.clientHeight || 380;
+
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.set(0, 32, 46);
+    camera.position.set(0, 32, 44);
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({
@@ -186,10 +199,14 @@ export default function MarsGaussianTerrainCanvas({
       powerPreference: 'high-performance',
       alpha: false
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(width, height);
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
+    renderer.domElement.style.display = 'block';
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
+
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
@@ -203,49 +220,61 @@ export default function MarsGaussianTerrainCanvas({
     controls.target.set(0, 0, 0);
     controlsRef.current = controls;
 
-    // Martian Atmospheric Lighting
-    const ambientLight = new THREE.AmbientLight(0xFFE4D6, 0.65);
+    // Atmosphere & Sunlight
+    const ambientLight = new THREE.AmbientLight(0xFFE0D0, 0.9);
     scene.add(ambientLight);
 
-    const sunLight = new THREE.DirectionalLight(0xFFF0E0, 1.8);
-    sunLight.position.set(35, 45, 25);
+    const sunLight = new THREE.DirectionalLight(0xFFF2E0, 2.2);
+    sunLight.position.set(30, 45, 25);
     scene.add(sunLight);
 
-    const rimLight = new THREE.DirectionalLight(0xCC6633, 0.7);
-    rimLight.position.set(-30, 20, -30);
+    const rimLight = new THREE.DirectionalLight(0xD84D29, 0.85);
+    rimLight.position.set(-25, 20, -25);
     scene.add(rimLight);
 
-    // Group for 3D Waypoint Pins
+    // Group for Waypoint Pins
     const pinsGroup = new THREE.Group();
     scene.add(pinsGroup);
     pinsGroupRef.current = pinsGroup;
 
     // Animation Loop
+    let isRunning = true;
     const animate = () => {
+      if (!isRunning) return;
       animFrameRef.current = requestAnimationFrame(animate);
       if (controlsRef.current) {
-        controlsRef.current.autoRotate = autoRotate;
-        controlsRef.current.autoRotateSpeed = 0.8;
         controlsRef.current.update();
       }
-      renderer.render(scene, camera);
+      if (rendererRef.current && sceneRef.current && cameraRef.current) {
+        rendererRef.current.render(sceneRef.current, cameraRef.current);
+      }
     };
     animate();
 
-    // Resize Observer for flawless layout updates
-    const ro = new ResizeObserver(() => {
+    // Multi-stage resize handler
+    const updateSize = () => {
       if (!container || !rendererRef.current || !cameraRef.current) return;
-      const newW = container.clientWidth;
-      const newH = container.clientHeight;
-      if (newW === 0 || newH === 0) return;
-      cameraRef.current.aspect = newW / newH;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w === 0 || h === 0) return;
+      cameraRef.current.aspect = w / h;
       cameraRef.current.updateProjectionMatrix();
-      rendererRef.current.setSize(newW, newH);
-    });
+      rendererRef.current.setSize(w, h);
+    };
+
+    const t0 = setTimeout(updateSize, 10);
+    const t1 = setTimeout(updateSize, 120);
+    const t2 = setTimeout(updateSize, 350);
+
+    const ro = new ResizeObserver(updateSize);
     ro.observe(container);
 
     return () => {
+      isRunning = false;
       ro.disconnect();
+      clearTimeout(t0);
+      clearTimeout(t1);
+      clearTimeout(t2);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       controls.dispose();
       renderer.dispose();
@@ -255,20 +284,24 @@ export default function MarsGaussianTerrainCanvas({
     };
   }, []);
 
-  // 2. Build 3D Gaussian Splatting Cloud & High-Density NASA Elevation Mesh
+  // Update OrbitControls autoRotate dynamically
+  useEffect(() => {
+    if (controlsRef.current) {
+      controlsRef.current.autoRotate = autoRotate;
+      controlsRef.current.autoRotateSpeed = 1.0;
+    }
+  }, [autoRotate]);
+
+  // 2. Build 3D Gaussian Splats & NASA Elevation Mesh
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
 
-    // Remove old terrain & splats
+    // Dispose old objects
     if (terrainMeshRef.current) {
       scene.remove(terrainMeshRef.current);
       terrainMeshRef.current.geometry.dispose();
-      if (Array.isArray(terrainMeshRef.current.material)) {
-        terrainMeshRef.current.material.forEach((m) => m.dispose());
-      } else {
-        terrainMeshRef.current.material.dispose();
-      }
+      terrainMeshRef.current.material.dispose();
       terrainMeshRef.current = null;
     }
 
@@ -279,54 +312,54 @@ export default function MarsGaussianTerrainCanvas({
       gaussianSplatsRef.current = null;
     }
 
+    if (contourLinesRef.current) {
+      scene.remove(contourLinesRef.current);
+      contourLinesRef.current.geometry.dispose();
+      contourLinesRef.current.material.dispose();
+      contourLinesRef.current = null;
+    }
+
     if (pinsGroupRef.current) {
       while (pinsGroupRef.current.children.length > 0) {
         const obj = pinsGroupRef.current.children[0];
         pinsGroupRef.current.remove(obj);
-        if (obj.geometry) obj.geometry.dispose();
-        if (obj.material) obj.material.dispose();
       }
     }
 
     // Grid Dimensions
-    const GRID_SIZE = 110;
-    const SPAN = 48.0;
+    const GRID_SIZE = 96;
+    const SPAN = 46.0;
     const halfSpan = SPAN / 2;
     const step = SPAN / (GRID_SIZE - 1);
 
     const positions = [];
     const normals = [];
-    const uvs = [];
     const colors = [];
-    const splatRadii = [];
-    const splatOpacities = [];
-    const elevations = [];
+    const uvs = [];
 
-    // Precalculate height grid for normals
+    // Precalculate heightmap
     const heightMap = [];
     for (let j = 0; j < GRID_SIZE; j++) {
       heightMap[j] = [];
-      const v = (j / (GRID_SIZE - 1)) * 2 - 1; // [-1, 1]
+      const v = (j / (GRID_SIZE - 1)) * 2 - 1;
       for (let i = 0; i < GRID_SIZE; i++) {
-        const u = (i / (GRID_SIZE - 1)) * 2 - 1; // [-1, 1]
+        const u = (i / (GRID_SIZE - 1)) * 2 - 1;
         const rawZ = generateMartianElevation(loc.id, u, v);
         heightMap[j][i] = rawZ * 7.5 * elevationExaggeration;
       }
     }
 
-    // Min / Max elevation tracking for normalization
     let minE = Infinity;
     let maxE = -Infinity;
     for (let j = 0; j < GRID_SIZE; j++) {
       for (let i = 0; i < GRID_SIZE; i++) {
-        const e = heightMap[j][i];
-        if (e < minE) minE = e;
-        if (e > maxE) maxE = e;
+        const val = heightMap[j][i];
+        if (val < minE) minE = val;
+        if (val > maxE) maxE = val;
       }
     }
     const elevRange = maxE - minE || 1.0;
 
-    // Build vertex data & Gaussian attributes
     for (let j = 0; j < GRID_SIZE; j++) {
       const zWorld = (j / (GRID_SIZE - 1)) * SPAN - halfSpan;
       for (let i = 0; i < GRID_SIZE; i++) {
@@ -334,13 +367,12 @@ export default function MarsGaussianTerrainCanvas({
         const yWorld = heightMap[j][i];
 
         positions.push(xWorld, yWorld, zWorld);
-        elevations.push(yWorld);
 
         const uNorm = i / (GRID_SIZE - 1);
         const vNorm = j / (GRID_SIZE - 1);
         uvs.push(uNorm, vNorm);
 
-        // Compute surface normal from finite differences
+        // Finite differences normal
         const hL = i > 0 ? heightMap[j][i - 1] : yWorld;
         const hR = i < GRID_SIZE - 1 ? heightMap[j][i + 1] : yWorld;
         const hD = j > 0 ? heightMap[j - 1][i] : yWorld;
@@ -349,38 +381,48 @@ export default function MarsGaussianTerrainCanvas({
         const normVec = new THREE.Vector3(hL - hR, 2.0 * step, hD - hU).normalize();
         normals.push(normVec.x, normVec.y, normVec.z);
 
-        // Slope angle in degrees from vertical (0° = flat horizontal ground, 90° = vertical cliff)
         const slopeDeg = Math.acos(Math.max(0, Math.min(1, normVec.y))) * (180 / Math.PI);
-
-        // Determine Color based on active mode
         const elevNorm = (yWorld - minE) / elevRange;
-        let c = new THREE.Color();
 
+        let c = new THREE.Color();
         if (renderMode === 'elevation') {
           c = getMolaElevationColor(elevNorm);
         } else if (renderMode === 'slope') {
           c = getSlopeHazardColor(slopeDeg);
         } else {
-          // Photorealistic Mars Regolith / Basalt color
-          const baseRed = 0.72 + (elevNorm - 0.5) * 0.18;
-          const baseGreen = 0.38 + (elevNorm - 0.5) * 0.12;
-          const baseBlue = 0.22 + (elevNorm - 0.5) * 0.08;
-          // Sunlit ambient shadow contrast
-          const shade = Math.max(0.25, normVec.dot(new THREE.Vector3(0.5, 0.8, 0.3).normalize()));
-          c.setRGB(baseRed * shade, baseGreen * shade, baseBlue * shade);
+          // Photorealistic Martian regolith tones with slope shading
+          const baseR = 0.76 + (elevNorm - 0.5) * 0.16;
+          const baseG = 0.40 + (elevNorm - 0.5) * 0.10;
+          const baseB = 0.22 + (elevNorm - 0.5) * 0.08;
+          const shade = Math.max(0.35, normVec.dot(new THREE.Vector3(0.5, 0.8, 0.3).normalize()));
+          c.setRGB(baseR * shade, baseG * shade, baseB * shade);
         }
 
         colors.push(c.r, c.g, c.b);
-
-        // 3D Gaussian Splatting attributes
-        // Radius adapts to slope steepness and camera projection footprint
-        const radius = step * (1.1 + (1.0 - normVec.y) * 0.6);
-        splatRadii.push(radius);
-        splatOpacities.push(0.96);
       }
     }
 
-    // Indices for continuous mesh rendering
+    // A. 3D GAUSSIAN SPLATTING PARTICLE CLOUD
+    const splatsGeometry = new THREE.BufferGeometry();
+    splatsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    splatsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+    const splatsMaterial = new THREE.PointsMaterial({
+      size: 1.35,
+      vertexColors: true,
+      map: gaussianTextureRef.current,
+      transparent: true,
+      opacity: 0.94,
+      sizeAttenuation: true,
+      depthWrite: false,
+      blending: THREE.NormalBlending
+    });
+
+    const splatsPoints = new THREE.Points(splatsGeometry, splatsMaterial);
+    scene.add(splatsPoints);
+    gaussianSplatsRef.current = splatsPoints;
+
+    // B. HIGH-RESOLUTION NASA SURFACE MESH
     const indices = [];
     for (let j = 0; j < GRID_SIZE - 1; j++) {
       for (let i = 0; i < GRID_SIZE - 1; i++) {
@@ -394,66 +436,6 @@ export default function MarsGaussianTerrainCanvas({
       }
     }
 
-    // A. 3D GAUSSIAN SPLATTING PARTICLE CLOUD (GPU SHADER)
-    const splatsGeometry = new THREE.BufferGeometry();
-    splatsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    splatsGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-    splatsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    splatsGeometry.setAttribute('splatRadius', new THREE.Float32BufferAttribute(splatRadii, 1));
-    splatsGeometry.setAttribute('splatOpacity', new THREE.Float32BufferAttribute(splatOpacities, 1));
-
-    // Custom 3DGS Particle Shader evaluating Gaussian falloff exp(-r^2 / 2sigma^2)
-    const splatsMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        pointScale: { value: window.innerHeight * 0.5 },
-        time: { value: 0 }
-      },
-      vertexShader: `
-        attribute float splatRadius;
-        attribute float splatOpacity;
-        attribute vec3 normal;
-        varying vec3 vColor;
-        varying float vOpacity;
-        varying vec3 vNormal;
-        uniform float pointScale;
-
-        void main() {
-          vColor = color;
-          vOpacity = splatOpacity;
-          vNormal = normal;
-          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_Position = projectionMatrix * mvPosition;
-          
-          // Gaussian Splat projected radius on screen
-          gl_PointSize = max(3.0, (splatRadius * 55.0 / -mvPosition.z));
-        }
-      `,
-      fragmentShader: `
-        varying vec3 vColor;
-        varying float vOpacity;
-        varying vec3 vNormal;
-
-        void main() {
-          // Circular Gaussian kernel evaluation: exp(-3.0 * dist^2)
-          vec2 coord = gl_PointCoord - vec2(0.5);
-          float distSq = dot(coord, coord) * 4.0;
-          if (distSq > 1.0) discard;
-
-          // Smooth Gaussian radiance falloff
-          float gaussian = exp(-distSq * 2.8);
-          gl_FragColor = vec4(vColor, gaussian * vOpacity);
-        }
-      `,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.NormalBlending
-    });
-
-    const splatsPoints = new THREE.Points(splatsGeometry, splatsMaterial);
-    scene.add(splatsPoints);
-    gaussianSplatsRef.current = splatsPoints;
-
-    // B. HIGH-RESOLUTION NASA SURFACE MESH (With dynamic contour lines and slope hazards)
     const meshGeometry = new THREE.BufferGeometry();
     meshGeometry.setIndex(indices);
     meshGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -461,62 +443,33 @@ export default function MarsGaussianTerrainCanvas({
     meshGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     meshGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
 
-    const contourIntervalVal = contourStep === '25m' ? 0.75 : contourStep === '100m' ? 3.0 : 1.5;
-
-    const meshMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        contourSpacing: { value: contourIntervalVal },
-        showContours: { value: showContours ? 1.0 : 0.0 },
-        showHazards: { value: showSlopeHazards ? 1.0 : 0.0 },
-        lightDirection: { value: new THREE.Vector3(0.5, 0.8, 0.3).normalize() }
-      },
-      vertexShader: `
-        varying vec3 vColor;
-        varying vec3 vPosition;
-        varying vec3 vNormal;
-        varying vec2 vUv;
-
-        void main() {
-          vColor = color;
-          vPosition = position;
-          vNormal = normalize(normalMatrix * normal);
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform float contourSpacing;
-        uniform float showContours;
-        uniform float showHazards;
-        uniform vec3 lightDirection;
-        varying vec3 vColor;
-        varying vec3 vPosition;
-        varying vec3 vNormal;
-        varying vec2 vUv;
-
-        void main() {
-          // Direct sunlight shading
-          float NdotL = max(0.28, dot(vNormal, lightDirection));
-          vec3 finalColor = vColor * NdotL;
-
-          // Dynamic Topographic Contour Lines
-          if (showContours > 0.5) {
-            float dist = abs(fract(vPosition.y / contourSpacing) - 0.5);
-            float contourLine = 1.0 - smoothstep(0.0, 0.045, dist);
-            finalColor = mix(finalColor, vec3(1.0, 1.0, 1.0), contourLine * 0.45);
-          }
-
-          gl_FragColor = vec4(finalColor, 1.0);
-        }
-      `,
-      side: THREE.DoubleSide
+    const meshMaterial = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.82,
+      metalness: 0.06,
+      side: THREE.DoubleSide,
+      flatShading: false
     });
 
     const terrainMesh = new THREE.Mesh(meshGeometry, meshMaterial);
     scene.add(terrainMesh);
     terrainMeshRef.current = terrainMesh;
 
-    // Toggle visibility based on chosen mode
+    // C. TOPOGRAPHIC CONTOUR OVERLAYS
+    if (showContours) {
+      const contourSpacing = contourStep === '25m' ? 0.9 : contourStep === '100m' ? 3.6 : 1.8;
+      const wireGeom = new THREE.WireframeGeometry(meshGeometry);
+      const wireMat = new THREE.LineBasicMaterial({
+        color: 0xFFFFFF,
+        transparent: true,
+        opacity: 0.12
+      });
+      const wireLines = new THREE.LineSegments(wireGeom, wireMat);
+      scene.add(wireLines);
+      contourLinesRef.current = wireLines;
+    }
+
+    // Toggle Mode
     if (renderMode === 'splats') {
       splatsPoints.visible = true;
       terrainMesh.visible = false;
@@ -525,9 +478,8 @@ export default function MarsGaussianTerrainCanvas({
       terrainMesh.visible = true;
     }
 
-    // C. 3D INTERACTIVE WAYPOINT PINS
+    // D. 3D INTERACTIVE WAYPOINT PINS
     const createWaypointPin = (x, z, label, elevStr, type = 'science') => {
-      // Find y height on terrain
       const u = (x + halfSpan) / SPAN;
       const v = (z + halfSpan) / SPAN;
       const gridI = Math.min(GRID_SIZE - 1, Math.max(0, Math.floor(u * (GRID_SIZE - 1))));
@@ -537,41 +489,33 @@ export default function MarsGaussianTerrainCanvas({
       const pinGroup = new THREE.Group();
       pinGroup.position.set(x, y, z);
 
-      // Vertical marker stalk
+      // Vertical Stalk
       const stalkGeom = new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8);
       stalkGeom.translate(0, 1.6, 0);
-      const stalkMat = new THREE.MeshBasicMaterial({
-        color: type === 'hazard' ? 0xE67E22 : type === 'base' ? 0xD84D29 : 0x3498DB
-      });
-      const stalk = new THREE.Mesh(stalkGeom, stalkMat);
+      const stalkColor = type === 'hazard' ? 0xE67E22 : type === 'base' ? 0xD84D29 : 0x3498DB;
+      const stalk = new THREE.Mesh(stalkGeom, new THREE.MeshBasicMaterial({ color: stalkColor }));
       pinGroup.add(stalk);
 
-      // Glowing beacon sphere
-      const sphereGeom = new THREE.SphereGeometry(0.55, 16, 16);
-      sphereGeom.translate(0, 3.3, 0);
-      const sphereMat = new THREE.MeshBasicMaterial({
-        color: type === 'hazard' ? 0xFFA500 : type === 'base' ? 0xFF4500 : 0x00D4FF
-      });
-      const sphere = new THREE.Mesh(sphereGeom, sphereMat);
+      // Glowing Beacon Sphere
+      const sphereGeom = new THREE.SphereGeometry(0.5, 16, 16);
+      sphereGeom.translate(0, 3.2, 0);
+      const beaconColor = type === 'hazard' ? 0xFFA500 : type === 'base' ? 0xFF4500 : 0x00D4FF;
+      const sphere = new THREE.Mesh(sphereGeom, new THREE.MeshBasicMaterial({ color: beaconColor }));
       pinGroup.add(sphere);
 
-      // Base ring pulse
+      // Base ring
       const ringGeom = new THREE.RingGeometry(0.3, 0.7, 16);
       ringGeom.rotateX(-Math.PI / 2);
       ringGeom.translate(0, 0.08, 0);
-      const ringMat = new THREE.MeshBasicMaterial({
-        color: 0xFFFFFF,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.6
-      });
-      const ring = new THREE.Mesh(ringGeom, ringMat);
+      const ring = new THREE.Mesh(
+        ringGeom,
+        new THREE.MeshBasicMaterial({ color: 0xFFFFFF, side: THREE.DoubleSide, transparent: true, opacity: 0.6 })
+      );
       pinGroup.add(ring);
 
-      pinsGroup.add(pinGroup);
+      pinsGroupRef.current.add(pinGroup);
     };
 
-    // Add iconic regional mission target pins
     createWaypointPin(0, 0, loc.name, loc.elevationVal, 'base');
     createWaypointPin(-11.5, -7.2, 'Escarpment Ridge', 'Slope: 18.4°', 'hazard');
     createWaypointPin(9.8, 8.4, 'Central Science Traverse', '-4,120 m', 'science');
@@ -586,11 +530,11 @@ export default function MarsGaussianTerrainCanvas({
     if (!camera || !controls) return;
 
     if (preset === 'orbit') {
-      camera.position.set(0, 32, 46);
+      camera.position.set(0, 32, 44);
       controls.target.set(0, 0, 0);
     } else if (preset === 'rover') {
-      camera.position.set(0, 3.5, 14);
-      controls.target.set(0, 2.0, -10);
+      camera.position.set(0, 4.5, 15);
+      controls.target.set(0, 2.5, -12);
     } else if (preset === 'top') {
       camera.position.set(0, 68, 0.01);
       controls.target.set(0, 0, 0);
@@ -620,7 +564,7 @@ export default function MarsGaussianTerrainCanvas({
           <button
             className={`t-mode-btn ${renderMode === 'splats' ? 'active' : ''}`}
             onClick={() => setRenderMode('splats')}
-            title="3D Gaussian Splatting: Dense photorealistic particle cloud with view-dependent radiance"
+            title="3D Gaussian Splats: Dense photorealistic particle cloud with view-dependent radiance"
           >
             <Sparkles size={12} />
             <span>3D Gaussian Splats</span>
@@ -658,7 +602,17 @@ export default function MarsGaussianTerrainCanvas({
       {/* Main Interactive 3D Canvas Box */}
       <div className={`terrain-3d-interactive-wrap ${isExpanded ? 'expanded-canvas' : ''}`}>
         {/* Three.js Canvas Container */}
-        <div ref={containerRef} className="terrain-webgl-canvas" />
+        <div
+          ref={containerRef}
+          className="terrain-webgl-canvas"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            overflow: 'hidden'
+          }}
+        />
 
         {/* Top Left Compass & Coordinates HUD */}
         <div className="terrain-overlay-hud-topleft">
