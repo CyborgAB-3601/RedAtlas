@@ -73,27 +73,55 @@ function generateScientificLocationElevation(locId, u, v) {
   const microDunes = Math.sin(u * 60.0 + v * 30.0) * 12.0;
 
   switch (locId) {
+    case 'olympus':
     case 'olympus_mons': {
-      // Base plain: -1,500m; Summit caldera: +21,287m (Relief: 22,787m)
+      // Real NASA MOLA Elevation profile:
+      // Surrounding aureole plains: -1,500m; Summit caldera rim: +21,287m (Relief: 22,787m)
       const baseElev = -1500;
-      const calderaRadius = 0.22;
-      const calderaDist = Math.abs(dist - calderaRadius);
 
-      // Smooth volcanic shield rise
-      const shieldHeight = 22787 * Math.exp(-Math.pow(dist, 1.35) * 1.6);
+      // Realistic Asymmetry: Olympus Mons is an asymmetrical shield elongated along NW-SE axis (~35° / -0.61 rad)
+      const rotRad = -0.61;
+      const uRot = u * Math.cos(rotRad) - v * Math.sin(rotRad);
+      const vRot = u * Math.sin(rotRad) + v * Math.cos(rotRad);
 
-      // Summit caldera multi-nested depression (-2,800m drop into caldera floor)
-      const calderaFloor = dist < calderaRadius ? -2800 * (1.0 - Math.pow(dist / calderaRadius, 2.5)) : 0;
+      // Asymmetric flank extension: Northwest flank (uRot < 0) extends much further with a gentler gradient
+      const nwStretch = uRot < 0 ? 1.28 : 0.96;
+      const distEllip = Math.sqrt(Math.pow(uRot / (1.14 * nwStretch), 2) + Math.pow(vRot / 0.86, 2));
 
-      // Basal cliff scarp (6,000m sheer basalt drop where mountain meets aureole plains at r ≈ 0.75 to 0.88)
-      const scarpDrop = dist > 0.72 ? -6500 / (1.0 + Math.exp(-(dist - 0.78) * 25.0)) : 0;
+      // Asymmetric shield height rise
+      const shield = 22787 * Math.exp(-Math.pow(distEllip, 1.42) * 1.58);
 
-      // Radial lava flow lobes and volcanic vents
-      const lavaRidges = Math.cos(angle * 9.0) * 350.0 * (dist > 0.25 && dist < 0.72 ? 1.0 : 0.0);
+      // Scalloped basal cliff scarp: 6,000m to 8,000m sheer drop with giant landslide embayments
+      // Realistic jagged perimeter varying with angle
+      const rScarp = 0.74 + 0.075 * Math.cos(3 * angle) + 0.04 * Math.sin(5 * angle - 0.4) + 0.02 * Math.cos(8 * angle);
+      const scarpDrop = distEllip > (rScarp - 0.06)
+        ? -7200.0 / (1.0 + Math.exp(-(distEllip - rScarp) * 32.0))
+        : 0;
 
-      return baseElev + shieldHeight + calderaFloor + scarpDrop + lavaRidges + micro1;
+      // Multi-ring nested caldera cluster at summit (+21,287m down to +18,500m):
+      // 1. Main Northwest collapse pit (offset to NW, -2,400m floor)
+      const d1 = Math.sqrt(Math.pow((u + 0.05) / 0.17, 2) + Math.pow((v - 0.04) / 0.13, 2));
+      const caldera1 = d1 < 1.0 ? -2400.0 * Math.pow(1.0 - Math.pow(d1, 2.0), 1.25) : 0;
+
+      // 2. Overlapping Southeast collapse pit (offset to SE, cuts into older floor)
+      const d2 = Math.sqrt(Math.pow((u - 0.07) / 0.14, 2) + Math.pow((v + 0.04) / 0.10, 2));
+      const caldera2 = d2 < 1.0 ? -1750.0 * Math.pow(1.0 - Math.pow(d2, 2.0), 1.35) : 0;
+
+      // 3. Arcuate graben slump terrace along Northern rim
+      const d3 = Math.sqrt(Math.pow((u + 0.02) / 0.11, 2) + Math.pow((v + 0.08) / 0.07, 2));
+      const caldera3 = d3 < 1.0 ? -850.0 * (1.0 - d3) : 0;
+
+      // Radial basalt lava flow channels, levees, and volcanic vents
+      const radialFlow = Math.cos(angle * 11.0 + distEllip * 7.0) * 260.0
+        * (distEllip > 0.22 && distEllip < rScarp ? 1.0 : 0.0);
+
+      // Flank parasitical volcanic cones and vents
+      const flankVent = Math.exp(-(Math.pow(u - 0.35, 2) + Math.pow(v + 0.25, 2)) / 0.004) * 650.0;
+
+      return baseElev + shield + scarpDrop + caldera1 + caldera2 + caldera3 + radialFlow + flankVent + micro1;
     }
 
+    case 'valles':
     case 'valles_marineris': {
       // Surrounding plateau: +3,500m; Canyon chasma floor: -4,500m (Relief: 8,000m)
       const plateauElev = 3500;
@@ -113,6 +141,7 @@ function generateScientificLocationElevation(locId, u, v) {
       return plateauElev + canyonDrop + wallTerraces + floorMound + micro1 + micro2;
     }
 
+    case 'gale':
     case 'gale_crater': {
       // Crater rim: +1,200m; Crater floor: -4,500m; Mount Sharp (Aeolis Mons): +1,000m (Relief: 5,500m)
       const floorElev = -4500;
@@ -135,6 +164,7 @@ function generateScientificLocationElevation(locId, u, v) {
       return floorElev + craterRim + mtSharp + clayRidge + outsideDrop + micro1 + microDunes;
     }
 
+    case 'jezero':
     case 'jezero_crater': {
       // Crater rim: -1,800m; Lakebed floor: -2,600m; Delta fan: -2,350m (Relief: 800m)
       const floorElev = -2600;
@@ -156,7 +186,8 @@ function generateScientificLocationElevation(locId, u, v) {
       return floorElev + craterRim + deltaFan + kodiakButte + micro1 + microDunes;
     }
 
-    case 'planum_boreum': {
+    case 'planum_boreum':
+    case 'polar_north': {
       // Vastitas Borealis plains: -4,000m; Polar Ice Dome: -1,800m (Relief: 2,200m)
       const plainsElev = -4000;
       const iceDome = 2200 * Math.exp(-dist * 1.2);
@@ -303,6 +334,7 @@ export default function MarsGaussianTerrainCanvas({
   const [autoRotate, setAutoRotate] = useState(false);
   const [cameraPreset, setCameraPreset] = useState('orbit');
   const [elevationStats, setElevationStats] = useState({ minM: -2450, maxM: 1200, reliefM: 3650 });
+  const [molaLoaded, setMolaLoaded] = useState(false);
 
   const box = selectedBoundingBox || {
     id: 'olympus_mons',
@@ -330,6 +362,10 @@ export default function MarsGaussianTerrainCanvas({
         height: img.height,
         imgData: ctx.getImageData(0, 0, img.width, img.height).data
       };
+      setMolaLoaded(true);
+    };
+    img.onerror = () => {
+      console.warn('MOLA global raster map not available; high-precision scientific models active.');
     };
   }, []);
 
@@ -534,7 +570,14 @@ export default function MarsGaussianTerrainCanvas({
     // Raw sampled elevation buffer in meters
     const rawMetersGrid = [];
     const molaData = molaImageCanvasRef.current;
-    const isNamedPreset = ['olympus_mons', 'valles_marineris', 'gale_crater', 'jezero_crater', 'proposed_base', 'planum_boreum'].includes(box.id);
+    const isNamedPreset = [
+      'olympus', 'olympus_mons',
+      'valles', 'valles_marineris',
+      'gale', 'gale_crater',
+      'jezero', 'jezero_crater',
+      'proposed_base',
+      'planum_boreum', 'polar_north'
+    ].includes(box.id);
 
     for (let j = 0; j < GRID_SIZE; j++) {
       rawMetersGrid[j] = new Float32Array(GRID_SIZE);
@@ -764,29 +807,33 @@ export default function MarsGaussianTerrainCanvas({
       pinsGroupRef.current.add(pinGroup);
     };
 
-    if (box.id === 'olympus_mons') {
-      createWaypointPin(0, 0, 'Summit Caldera', `${Math.round(sampleMaxM)} m`, 'base');
-      createWaypointPin(-14.2, -8.5, 'Basal Cliff Scarp', '6,000 m drop', 'hazard');
+    if (box.id === 'olympus' || box.id === 'olympus_mons') {
+      createWaypointPin(0, 0, 'Summit Caldera Complex', `${Math.round(sampleMaxM)} m`, 'base');
+      createWaypointPin(-14.2, -8.5, 'Basal Cliff Scarp', '6,000–8,000 m drop', 'hazard');
       createWaypointPin(11.0, 10.2, 'Lava Channel Vent', `${Math.round(sampleMinM + realReliefM * 0.45)} m`, 'science');
-    } else if (box.id === 'valles_marineris') {
+    } else if (box.id === 'valles' || box.id === 'valles_marineris') {
       createWaypointPin(0, 2.5, 'Candor Chasma Floor', `${Math.round(sampleMinM)} m`, 'science');
       createWaypointPin(-12.0, -11.0, 'Ophir Wall Plateau', `${Math.round(sampleMaxM)} m`, 'base');
       createWaypointPin(8.5, -4.2, 'Steep Fault Scarp', 'Slope: 32.5°', 'hazard');
-    } else if (box.id === 'gale_crater') {
+    } else if (box.id === 'gale' || box.id === 'gale_crater') {
       createWaypointPin(2.0, 3.2, 'Mount Sharp (Aeolis Mons)', `${Math.round(sampleMaxM)} m`, 'science');
       createWaypointPin(-11.0, -8.0, 'Bradbury Landing Floor', `${Math.round(sampleMinM)} m`, 'base');
       createWaypointPin(14.5, 5.0, 'North Rim Crest', 'Elevation +1,100 m', 'hazard');
-    } else if (box.id === 'jezero_crater') {
+    } else if (box.id === 'jezero' || box.id === 'jezero_crater') {
       createWaypointPin(-8.5, 0.0, 'Neretva Delta Fan', `${Math.round(sampleMinM + 250)} m`, 'science');
       createWaypointPin(0, 0, 'Sedimentary Lakebed', `${Math.round(sampleMinM)} m`, 'base');
       createWaypointPin(13.0, 6.0, 'Belva Crater Rim', `${Math.round(sampleMaxM)} m`, 'hazard');
+    } else if (box.id === 'planum_boreum' || box.id === 'polar_north') {
+      createWaypointPin(0, 0, 'Planum Boreum Ice Dome', `${Math.round(sampleMaxM)} m`, 'base');
+      createWaypointPin(-9.0, 4.0, 'Chasma Boreale Trough', `${Math.round(sampleMinM)} m`, 'hazard');
+      createWaypointPin(7.5, -6.5, 'Spiral Ice Trough', `${Math.round(sampleMinM + 600)} m`, 'science');
     } else {
       createWaypointPin(0, 0, box.name, `${Math.round(sampleMaxM)} m`, 'base');
       createWaypointPin(-11.5, -7.2, 'Escarpment Rim', 'Slope: 18.4°', 'hazard');
       createWaypointPin(9.8, 8.4, 'Lowland Floor', `${Math.round(sampleMinM)} m`, 'science');
     }
 
-  }, [box.latMin, box.latMax, box.lngMin, box.lngMax, box.id, renderMode, elevationExaggeration, contourStep, showContours, showSlopeHazards]);
+  }, [box.latMin, box.latMax, box.lngMin, box.lngMax, box.id, renderMode, elevationExaggeration, contourStep, showContours, showSlopeHazards, molaLoaded]);
 
   // Handle Camera Presets
   const handleSetPreset = (preset) => {
@@ -876,17 +923,44 @@ export default function MarsGaussianTerrainCanvas({
 
       {/* Main Interactive 3D Canvas Box */}
       <div className={`terrain-3d-interactive-wrap ${isExpanded ? 'expanded-canvas' : ''}`}>
-        {/* Prominent Exit Fullscreen Pill when expanded */}
-        {isExpanded && onToggleExpand && (
+        {/* Top-Center Floating Mode HUD (Always visible and interactive in both normal & fullscreen mode) */}
+        <div className="terrain-canvas-floating-mode-bar">
           <button
-            className="terrain-fullscreen-close-pill"
-            onClick={() => onToggleExpand(false)}
-            title="Exit Fullscreen (or press Esc)"
+            className={`t-float-mode-btn ${renderMode === 'splats' ? 'active' : ''}`}
+            onClick={() => setRenderMode('splats')}
+            title="3D Gaussian Splats: Dense photorealistic particle cloud with Gaussian radiance"
           >
-            <Minimize2 size={15} />
-            <span>Exit Fullscreen</span>
+            <Sparkles size={12} />
+            <span>3D Gaussian Splats</span>
           </button>
-        )}
+
+          <button
+            className={`t-float-mode-btn ${renderMode === 'textured' ? 'active' : ''}`}
+            onClick={() => setRenderMode('textured')}
+            title="NASA HiRISE / Viking Ortho Surface Mesh"
+          >
+            <Layers size={12} />
+            <span>NASA Mesh</span>
+          </button>
+
+          <button
+            className={`t-float-mode-btn ${renderMode === 'elevation' ? 'active' : ''}`}
+            onClick={() => setRenderMode('elevation')}
+            title="MOLA Topographic Elevation Color Ramp"
+          >
+            <Mountain size={12} />
+            <span>MOLA Topo</span>
+          </button>
+
+          <button
+            className={`t-float-mode-btn ${renderMode === 'slope' ? 'active' : ''}`}
+            onClick={() => setRenderMode('slope')}
+            title="Slope Hazard Trafficability Heatmap"
+          >
+            <AlertTriangle size={12} />
+            <span>Slope Hazards</span>
+          </button>
+        </div>
 
         {/* Three.js Canvas Container */}
         <div
@@ -957,14 +1031,25 @@ export default function MarsGaussianTerrainCanvas({
             <RotateCcw size={14} className={autoRotate ? 'spin-slow' : ''} />
           </button>
 
-          {onToggleExpand && (
+          {isExpanded && onToggleExpand ? (
             <button
-              className="t-hud-action-btn"
-              onClick={() => onToggleExpand(!isExpanded)}
-              title={isExpanded ? 'Exit Fullscreen' : 'Fullscreen Terrain'}
+              className="terrain-fullscreen-close-pill"
+              onClick={() => onToggleExpand(false)}
+              title="Exit Fullscreen (Esc)"
             >
-              {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              <Minimize2 size={13} />
+              <span>Exit Fullscreen</span>
             </button>
+          ) : (
+            onToggleExpand && (
+              <button
+                className="t-hud-action-btn"
+                onClick={() => onToggleExpand(true)}
+                title="Fullscreen Terrain"
+              >
+                <Maximize2 size={14} />
+              </button>
+            )
           )}
         </div>
 
