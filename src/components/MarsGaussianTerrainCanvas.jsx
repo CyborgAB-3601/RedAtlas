@@ -482,7 +482,11 @@ export default function MarsGaussianTerrainCanvas({
   const [showPins, setShowPins] = useState(true);
   const [pinProbeActive, setPinProbeActive] = useState(true);
   const [hoverElevation, setHoverElevation] = useState(null); // { x, y, z, lat, lng, elevM, slopeDeg }
-  const [hoveredCustomPin, setHoveredCustomPin] = useState(null); // custom pin under hover
+  const [activePin, setActivePin] = useState(null); // active custom pin under hover or selection
+  const [activePinScreen, setActivePinScreen] = useState(null); // 2D projected screen coordinates { screenX, screenY }
+  const activePinRef = useRef(null);
+  const selectedPinRef = useRef(null);
+  const isHoveringPinRef = useRef(false);
   const isHoveringCardRef = useRef(false);
   const cardLeaveTimeoutRef = useRef(null);
   const [autoRotate, setAutoRotate] = useState(false);
@@ -672,6 +676,24 @@ export default function MarsGaussianTerrainCanvas({
       }
       if (rendererRef.current && sceneRef.current && cameraRef.current) {
         rendererRef.current.render(sceneRef.current, cameraRef.current);
+
+        // Keep active pin's 2D screen anchor updated during camera movements (orbit/pan/zoom)
+        if (activePinRef.current?.head3DPos && containerRef.current && cameraRef.current) {
+          const v = activePinRef.current.head3DPos.clone();
+          v.project(cameraRef.current);
+          if (v.z <= 1) {
+            const w = containerRef.current.clientWidth;
+            const h = containerRef.current.clientHeight;
+            const sx = (v.x * 0.5 + 0.5) * w;
+            const sy = (-v.y * 0.5 + 0.5) * h;
+            setActivePinScreen((prev) => {
+              if (!prev || Math.abs(prev.screenX - sx) > 0.5 || Math.abs(prev.screenY - sy) > 0.5) {
+                return { screenX: sx, screenY: sy };
+              }
+              return prev;
+            });
+          }
+        }
       }
     };
     animate();
@@ -804,7 +826,13 @@ export default function MarsGaussianTerrainCanvas({
 
       const pinGroup = new THREE.Group();
       pinGroup.position.set(x, y, z);
-      pinGroup.userData = { pinId: pin.id, pinData: pin };
+      const head3DPos = new THREE.Vector3(x, y + 3.2, z);
+      pinGroup.userData = {
+        pinId: pin.id,
+        pinData: pin,
+        head3DPos,
+        base3DPos: new THREE.Vector3(x, y, z)
+      };
 
       // Red Stalk
       const stalkGeom = new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8);
@@ -844,6 +872,21 @@ export default function MarsGaussianTerrainCanvas({
     });
   }, [localPinnedLocations, terrainGeometryDataRef.current]);
 
+  const handleRemovePin = (pinId) => {
+    setLocalPinnedLocations((prev) => prev.filter((p) => p.id !== pinId));
+    if (onRemovePin) onRemovePin(pinId);
+    if (activePinRef.current?.pin?.id === pinId) {
+      setActivePin(null);
+      setActivePinScreen(null);
+      activePinRef.current = null;
+    }
+    if (selectedPinRef.current?.id === pinId) {
+      selectedPinRef.current = null;
+    }
+    isHoveringCardRef.current = false;
+    isHoveringPinRef.current = false;
+  };
+
   // Raycaster & Pointer Move for Pin Probe (Hover over gaussian splat to read exact elevation & Click to Mark Pin)
   useEffect(() => {
     const container = containerRef.current;
@@ -869,8 +912,6 @@ export default function MarsGaussianTerrainCanvas({
       const elapsed = Date.now() - pointerDownTime;
       if (dist > 14 || elapsed > 550) return; // was an intended orbit drag
 
-      if (!pinProbeActive) return;
-
       const rect = container.getBoundingClientRect();
       mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -878,9 +919,52 @@ export default function MarsGaussianTerrainCanvas({
       const camera = cameraRef.current;
       const mesh = terrainMeshRef.current;
       const geomData = terrainGeometryDataRef.current;
+      const customGroup = customPinsGroupRef.current;
       if (!camera || !mesh || !geomData) return;
 
       raycaster.setFromCamera(mouse, camera);
+
+      // Check if user clicked an existing custom pin!
+      if (customGroup && customGroup.children.length > 0) {
+        const pinIntersects = raycaster.intersectObjects(customGroup.children, true);
+        if (pinIntersects.length > 0) {
+          let cur = pinIntersects[0].object;
+          while (cur && cur.parent !== customGroup) {
+            cur = cur.parent;
+          }
+          if (cur && cur.userData?.pinData) {
+            const headPos = cur.userData.head3DPos.clone();
+            headPos.project(camera);
+            const headScreenX = (headPos.x * 0.5 + 0.5) * rect.width;
+            const headScreenY = (-headPos.y * 0.5 + 0.5) * rect.height;
+
+            const pinData = cur.userData.pinData;
+            selectedPinRef.current = pinData;
+            const newActive = {
+              pin: pinData,
+              head3DPos: cur.userData.head3DPos,
+              screenX: headScreenX,
+              screenY: headScreenY
+            };
+            activePinRef.current = newActive;
+            setActivePin(newActive);
+            setActivePinScreen({ screenX: headScreenX, screenY: headScreenY });
+            return; // Clicked existing pin: select it, don't drop another pin!
+          }
+        }
+      }
+
+      // If clicking empty area and a pin was previously selected/open, deselect it
+      if (selectedPinRef.current) {
+        selectedPinRef.current = null;
+        activePinRef.current = null;
+        setActivePin(null);
+        setActivePinScreen(null);
+        return;
+      }
+
+      if (!pinProbeActive) return;
+
       const intersects = raycaster.intersectObject(mesh);
 
       if (intersects.length > 0) {
@@ -943,6 +1027,23 @@ export default function MarsGaussianTerrainCanvas({
         // Update local state immediately so pin renders on 3D Gaussian Splat with zero delay
         setLocalPinnedLocations((prev) => [newPin, ...prev.filter((p) => p.id !== newPin.id)]);
 
+        // Calculate initial screen coordinates and automatically open newly marked pin
+        const newHead3DPos = new THREE.Vector3(pt.x, pt.y + 3.2, pt.z);
+        const headPosProj = newHead3DPos.clone().project(camera);
+        const headScreenX = (headPosProj.x * 0.5 + 0.5) * rect.width;
+        const headScreenY = (-headPosProj.y * 0.5 + 0.5) * rect.height;
+
+        selectedPinRef.current = newPin;
+        const newActive = {
+          pin: newPin,
+          head3DPos: newHead3DPos,
+          screenX: headScreenX,
+          screenY: headScreenY
+        };
+        activePinRef.current = newActive;
+        setActivePin(newActive);
+        setActivePinScreen({ screenX: headScreenX, screenY: headScreenY });
+
         if (onAddPin) {
           onAddPin(newPin);
         }
@@ -965,45 +1066,66 @@ export default function MarsGaussianTerrainCanvas({
       raycaster.setFromCamera(mouse, camera);
 
       // Check if hovering over any existing custom red pin
+      let hoveredPinObj = null;
       if (customGroup && customGroup.children.length > 0) {
         const pinIntersects = raycaster.intersectObjects(customGroup.children, true);
         if (pinIntersects.length > 0) {
-          // Cancel any pending card close timer
-          if (cardLeaveTimeoutRef.current) {
-            clearTimeout(cardLeaveTimeoutRef.current);
-            cardLeaveTimeoutRef.current = null;
-          }
-          // Find root pin group
           let cur = pinIntersects[0].object;
           while (cur && cur.parent !== customGroup) {
             cur = cur.parent;
           }
           if (cur && cur.userData?.pinData) {
-            setHoveredCustomPin({
-              screenX: e.clientX - rect.left,
-              screenY: e.clientY - rect.top,
-              pin: cur.userData.pinData
-            });
-            if (hoverPinGroupRef.current) hoverPinGroupRef.current.visible = false;
-            setHoverElevation(null);
-            return;
+            hoveredPinObj = cur;
           }
         }
       }
 
-      // If user is currently hovering directly over the card popup, don't dismiss it!
-      if (isHoveringCardRef.current) {
+      if (hoveredPinObj) {
+        isHoveringPinRef.current = true;
+        if (cardLeaveTimeoutRef.current) {
+          clearTimeout(cardLeaveTimeoutRef.current);
+          cardLeaveTimeoutRef.current = null;
+        }
+
+        const headPos = hoveredPinObj.userData.head3DPos.clone();
+        headPos.project(camera);
+        const headScreenX = (headPos.x * 0.5 + 0.5) * rect.width;
+        const headScreenY = (-headPos.y * 0.5 + 0.5) * rect.height;
+
+        const pinData = hoveredPinObj.userData.pinData;
+        const newActive = {
+          pin: pinData,
+          head3DPos: hoveredPinObj.userData.head3DPos,
+          screenX: headScreenX,
+          screenY: headScreenY
+        };
+        activePinRef.current = newActive;
+        setActivePin(newActive);
+        setActivePinScreen({ screenX: headScreenX, screenY: headScreenY });
+
+        if (hoverPinGroupRef.current) hoverPinGroupRef.current.visible = false;
+        setHoverElevation(null);
         return;
       }
 
-      // Add a slight grace period (400ms) when moving off the pin so user can glide cursor into the card
-      if (!cardLeaveTimeoutRef.current) {
+      // Not directly over 3D pin geometry
+      isHoveringPinRef.current = false;
+
+      // If user is currently hovering directly over the card popup, circular X, or pin is locked open (selected), DO NOT dismiss!
+      if (isHoveringCardRef.current || selectedPinRef.current) {
+        return;
+      }
+
+      // If activePin is currently showing, give a generous 1400ms grace period so user can glide cursor into the card or click the button!
+      if (activePinRef.current && !cardLeaveTimeoutRef.current) {
         cardLeaveTimeoutRef.current = setTimeout(() => {
-          if (!isHoveringCardRef.current) {
-            setHoveredCustomPin(null);
+          if (!isHoveringCardRef.current && !isHoveringPinRef.current && !selectedPinRef.current) {
+            setActivePin(null);
+            setActivePinScreen(null);
+            activePinRef.current = null;
           }
           cardLeaveTimeoutRef.current = null;
-        }, 400);
+        }, 1400);
       }
 
       if (!pinProbeActive) {
@@ -1073,7 +1195,18 @@ export default function MarsGaussianTerrainCanvas({
     const handlePointerLeave = () => {
       if (hoverPinGroupRef.current) hoverPinGroupRef.current.visible = false;
       setHoverElevation(null);
-      setHoveredCustomPin(null);
+      if (!isHoveringCardRef.current && !selectedPinRef.current) {
+        if (!cardLeaveTimeoutRef.current) {
+          cardLeaveTimeoutRef.current = setTimeout(() => {
+            if (!isHoveringCardRef.current && !selectedPinRef.current) {
+              setActivePin(null);
+              setActivePinScreen(null);
+              activePinRef.current = null;
+            }
+            cardLeaveTimeoutRef.current = null;
+          }, 1400);
+        }
+      }
     };
 
     container.addEventListener('pointerdown', handlePointerDown);
@@ -1746,7 +1879,7 @@ export default function MarsGaussianTerrainCanvas({
         </div>
 
         {/* Pin Probe Elevation Hover Tooltip (Red Theme with Click to Mark hint) */}
-        {hoverElevation && !hoveredCustomPin && (
+        {hoverElevation && !activePin && (
           <div
             className="terrain-elevation-probe-tooltip"
             style={{
@@ -1774,13 +1907,53 @@ export default function MarsGaussianTerrainCanvas({
           </div>
         )}
 
-        {/* Existing Custom Marked Pin Hover Card with [X] Remove & [Map] Navigate */}
-        {hoveredCustomPin && (
+        {/* 1. Circular [X] Cancel Button positioned directly on the circular head of the pin */}
+        {activePin && activePinScreen && (
+          <button
+            className="pin-circle-x-overlay"
+            style={{
+              left: `${activePinScreen.screenX}px`,
+              top: `${activePinScreen.screenY}px`
+            }}
+            onMouseEnter={() => {
+              isHoveringPinRef.current = true;
+              if (cardLeaveTimeoutRef.current) {
+                clearTimeout(cardLeaveTimeoutRef.current);
+                cardLeaveTimeoutRef.current = null;
+              }
+            }}
+            onMouseLeave={() => {
+              isHoveringPinRef.current = false;
+              if (!selectedPinRef.current) {
+                cardLeaveTimeoutRef.current = setTimeout(() => {
+                  if (!isHoveringCardRef.current && !isHoveringPinRef.current && !selectedPinRef.current) {
+                    setActivePin(null);
+                    setActivePinScreen(null);
+                    activePinRef.current = null;
+                  }
+                  cardLeaveTimeoutRef.current = null;
+                }, 1400);
+              }
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleRemovePin(activePin.pin.id);
+            }}
+            title="Cancel / Remove Pin"
+          >
+            <X size={15} strokeWidth={3} />
+          </button>
+        )}
+
+        {/* 2. Marked Pin Details Card (NO X inside the card, as requested: 'the pin should have X not the box') */}
+        {activePin && activePinScreen && (
           <div
             className="terrain-elevation-probe-tooltip marked-pin-hover-card"
             style={{
-              left: Math.max(16, Math.min((containerRef.current?.clientWidth || 600) - 230, hoveredCustomPin.screenX + 16)),
-              top: Math.max(16, hoveredCustomPin.screenY - 110),
+              left: Math.max(16, Math.min((containerRef.current?.clientWidth || 600) - 240, activePinScreen.screenX + 22)),
+              top: Math.max(16, Math.min((containerRef.current?.clientHeight || 400) - 170, activePinScreen.screenY - 75)),
               pointerEvents: 'auto'
             }}
             onMouseEnter={() => {
@@ -1792,50 +1965,49 @@ export default function MarsGaussianTerrainCanvas({
             }}
             onMouseLeave={() => {
               isHoveringCardRef.current = false;
-              setHoveredCustomPin(null);
+              if (!selectedPinRef.current) {
+                cardLeaveTimeoutRef.current = setTimeout(() => {
+                  if (!isHoveringCardRef.current && !isHoveringPinRef.current && !selectedPinRef.current) {
+                    setActivePin(null);
+                    setActivePinScreen(null);
+                    activePinRef.current = null;
+                  }
+                  cardLeaveTimeoutRef.current = null;
+                }, 1400);
+              }
             }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="probe-tooltip-header">
               <div className="marked-header-left">
                 <div className="red-pin-pulse-dot" />
                 <span className="probe-title red-accent">MARKED PIN</span>
               </div>
-              <button
-                className="pin-remove-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const targetId = hoveredCustomPin.pin.id;
-                  setLocalPinnedLocations((prev) => prev.filter((p) => p.id !== targetId));
-                  if (onRemovePin) onRemovePin(targetId);
-                  setHoveredCustomPin(null);
-                  isHoveringCardRef.current = false;
-                }}
-                title="Remove Pin"
-              >
-                <X size={12} />
-              </button>
             </div>
 
             <div className="probe-tooltip-body">
-              <span className="probe-marker-name">{hoveredCustomPin.pin.name}</span>
+              <span className="probe-marker-name">{activePin.pin.name}</span>
               <span className="probe-elev-val red-text">
-                {hoveredCustomPin.pin.elevationVal || `${hoveredCustomPin.pin.elevationNum} m`}
+                {activePin.pin.elevationVal || `${activePin.pin.elevationNum} m`}
               </span>
               <span className="probe-coords">
-                {hoveredCustomPin.pin.coordsText}
+                {activePin.pin.coordsText}
               </span>
             </div>
 
             {onNavigateToMap && (
               <button
                 className="probe-navigate-map-btn"
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
-                  onNavigateToMap(hoveredCustomPin.pin);
+                  onNavigateToMap(activePin.pin);
                 }}
                 title="View on Satellite Map in Home Page"
               >
-                <ExternalLink size={11} />
+                <ExternalLink size={12} />
                 <span>View on Satellite Map</span>
               </button>
             )}
