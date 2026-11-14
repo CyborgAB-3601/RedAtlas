@@ -165,10 +165,12 @@ export default function App() {
         );
       case '3D Terrain':
         return (
-          <div className="center-page-card custom-scrollbar">
+          <div className={`center-page-card custom-scrollbar ${isMapExpanded ? 'terrain-expanded-card' : ''}`}>
             <TerrainView
               selectedLocation={selectedLocation}
               onOpenHUD={() => setIsSimOpen(true)}
+              isExpanded={isMapExpanded}
+              onToggleExpand={setIsMapExpanded}
             />
           </div>
         );

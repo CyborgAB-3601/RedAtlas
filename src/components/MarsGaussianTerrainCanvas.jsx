@@ -449,6 +449,44 @@ export default function MarsGaussianTerrainCanvas({
     }
   }, [autoRotate]);
 
+  // Escape key listener to exit fullscreen back to normal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isExpanded && onToggleExpand) {
+        onToggleExpand(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isExpanded, onToggleExpand]);
+
+  // Multi-stage debounced resize on fullscreen toggle
+  useEffect(() => {
+    const resizeNow = () => {
+      const container = containerRef.current;
+      const camera = cameraRef.current;
+      const renderer = rendererRef.current;
+      if (!container || !camera || !renderer) return;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w === 0 || h === 0) return;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    };
+
+    const t0 = setTimeout(resizeNow, 20);
+    const t1 = setTimeout(resizeNow, 150);
+    const t2 = setTimeout(resizeNow, 350);
+    const t3 = setTimeout(resizeNow, 550);
+    return () => {
+      clearTimeout(t0);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [isExpanded]);
+
   // 2. Build 3D Gaussian Splats & NASA Elevation Mesh with Anti-Spike Protection
   useEffect(() => {
     const scene = sceneRef.current;
@@ -838,6 +876,18 @@ export default function MarsGaussianTerrainCanvas({
 
       {/* Main Interactive 3D Canvas Box */}
       <div className={`terrain-3d-interactive-wrap ${isExpanded ? 'expanded-canvas' : ''}`}>
+        {/* Prominent Exit Fullscreen Pill when expanded */}
+        {isExpanded && onToggleExpand && (
+          <button
+            className="terrain-fullscreen-close-pill"
+            onClick={() => onToggleExpand(false)}
+            title="Exit Fullscreen (or press Esc)"
+          >
+            <Minimize2 size={15} />
+            <span>Exit Fullscreen</span>
+          </button>
+        )}
+
         {/* Three.js Canvas Container */}
         <div
           ref={containerRef}
