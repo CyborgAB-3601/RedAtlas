@@ -191,6 +191,9 @@ export default function MarsAreaBoundingBoxSelector({
       if (onSelectBoundingBox) {
         onSelectBoundingBox(customBox);
       }
+      if (onGenerateGaussianSplat) {
+        onGenerateGaussianSplat(customBox);
+      }
     }
     setTempBox(null);
   };
@@ -370,6 +373,7 @@ export default function MarsAreaBoundingBoxSelector({
                 className={`preset-card-chip ${isSelected ? 'active' : ''}`}
                 onClick={() => {
                   if (onSelectBoundingBox) onSelectBoundingBox(preset);
+                  if (onGenerateGaussianSplat) onGenerateGaussianSplat(preset);
                 }}
               >
                 <span className="p-icon">{preset.icon}</span>

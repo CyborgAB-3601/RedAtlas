@@ -58,8 +58,8 @@ export default function TerrainView({
   isExpanded = false,
   onToggleExpand
 }) {
-  // Default to 3D Gaussian Splat view directly so user doesn't see a static map first
-  const [activeTab, setActiveTab] = useState('3d');
+  // Step 1: Default to Draw / Select Area on Satellite Map first, then 3D Gaussian Splat will come!
+  const [activeTab, setActiveTab] = useState('map');
   
   // Active Bounding Box state - immediately initialized to user's selected location
   const [selectedBoundingBox, setSelectedBoundingBox] = useState(() => {
@@ -78,7 +78,7 @@ export default function TerrainView({
     }
   }, [selectedLocation?.id, selectedLocation?.name, selectedLocation?.coords?.lat, selectedLocation?.coords?.lng]);
 
-  // When user clicks "Generate 3D Gaussian Splat" from the map selector
+  // When user draws an area or clicks "Generate 3D Gaussian Splat" from the map selector
   const handleGenerateGaussianSplat = (box) => {
     setSelectedBoundingBox(box);
     setActiveTab('3d');
@@ -91,19 +91,19 @@ export default function TerrainView({
         <div className="terrain-pipeline-tabs-header">
           <div className="pipeline-tab-group">
             <button
-              className={`pipeline-tab-btn ${activeTab === '3d' ? 'active' : ''}`}
-              onClick={() => setActiveTab('3d')}
-            >
-              <Sparkles size={14} />
-              <span>3D Gaussian Splat Engine</span>
-            </button>
-
-            <button
               className={`pipeline-tab-btn ${activeTab === 'map' ? 'active' : ''}`}
               onClick={() => setActiveTab('map')}
             >
               <Crop size={14} />
-              <span>Draw / Select Area on Satellite Map</span>
+              <span>Step 1: Draw Area on Satellite Map</span>
+            </button>
+
+            <button
+              className={`pipeline-tab-btn ${activeTab === '3d' ? 'active' : ''}`}
+              onClick={() => setActiveTab('3d')}
+            >
+              <Sparkles size={14} />
+              <span>Step 2: 3D Gaussian Splat</span>
             </button>
           </div>
 

@@ -217,21 +217,21 @@ function generateScientificLocationElevation(locId, u, v) {
 }
 
 // 3x3 Spatial Median Filter + Gradient Outlier Clamping (Eliminates All Spikes)
-function applyAntiSpikeFilter(grid, size, maxSlopeGradient = 1200.0) {
+function applyAntiSpikeFilter(grid, sizeX, sizeY, maxSlopeGradient = 1200.0) {
   const filtered = [];
-  for (let j = 0; j < size; j++) {
-    filtered[j] = new Float32Array(size);
+  for (let j = 0; j < sizeY; j++) {
+    filtered[j] = new Float32Array(sizeX);
   }
 
   // Pass 1: 3x3 Median Filter
   const window = [];
-  for (let j = 0; j < size; j++) {
-    for (let i = 0; i < size; i++) {
+  for (let j = 0; j < sizeY; j++) {
+    for (let i = 0; i < sizeX; i++) {
       window.length = 0;
       for (let dy = -1; dy <= 1; dy++) {
-        const y = Math.min(size - 1, Math.max(0, j + dy));
+        const y = Math.min(sizeY - 1, Math.max(0, j + dy));
         for (let dx = -1; dx <= 1; dx++) {
-          const x = Math.min(size - 1, Math.max(0, i + dx));
+          const x = Math.min(sizeX - 1, Math.max(0, i + dx));
           window.push(grid[y][x]);
         }
       }
@@ -241,8 +241,8 @@ function applyAntiSpikeFilter(grid, size, maxSlopeGradient = 1200.0) {
   }
 
   // Pass 2: Physical Slope Gradient Clamping (No single grid cell can jump past max physical limit)
-  for (let j = 1; j < size - 1; j++) {
-    for (let i = 1; i < size - 1; i++) {
+  for (let j = 1; j < sizeY - 1; j++) {
+    for (let i = 1; i < sizeX - 1; i++) {
       const avgNeighbor = (filtered[j - 1][i] + filtered[j + 1][i] + filtered[j][i - 1] + filtered[j][i + 1]) * 0.25;
       const diff = filtered[j][i] - avgNeighbor;
       if (Math.abs(diff) > maxSlopeGradient) {
@@ -556,11 +556,44 @@ export default function MarsGaussianTerrainCanvas({
       }
     }
 
-    // Grid Dimensions
-    const GRID_SIZE = 96;
-    const SPAN = 46.0;
-    const halfSpan = SPAN / 2;
-    const step = SPAN / (GRID_SIZE - 1);
+    // Calculate physical geographic dimensions of the drawn bounding box (Mars radius R = 3389.5 km)
+    const latMin = Math.min(box.latMin, box.latMax);
+    const latMax = Math.max(box.latMin, box.latMax);
+    const lngMin = Math.min(box.lngMin, box.lngMax);
+    const lngMax = Math.max(box.lngMin, box.lngMax);
+
+    const latSpan = Math.max(0.08, latMax - latMin);
+    const lngSpan = Math.max(0.08, lngMax - lngMin);
+    const latMid = (latMax + latMin) / 2;
+
+    const kmPerLatDeg = 59.16;
+    const kmPerLngDeg = 59.16 * Math.cos((latMid * Math.PI) / 180);
+
+    const widthKm = Math.max(4, Math.round(lngSpan * kmPerLngDeg));
+    const heightKm = Math.max(4, Math.round(latSpan * kmPerLatDeg));
+
+    // True physical aspect ratio (Width : Height) - preserves exact drawn rectangle without cutting
+    const aspect = Math.max(0.25, Math.min(4.0, widthKm / heightKm));
+
+    const BASE_SPAN = 46.0;
+    let spanX, spanZ;
+    if (aspect >= 1.0) {
+      spanX = BASE_SPAN;
+      spanZ = Math.max(10.0, BASE_SPAN / aspect);
+    } else {
+      spanZ = BASE_SPAN;
+      spanX = Math.max(10.0, BASE_SPAN * aspect);
+    }
+
+    const halfSpanX = spanX / 2;
+    const halfSpanZ = spanZ / 2;
+
+    // Adapt grid resolution along each axis so splat density is uniform and smooth
+    const GRID_SIZE_X = aspect >= 1.0 ? 96 : Math.max(36, Math.round(96 * aspect));
+    const GRID_SIZE_Z = aspect <= 1.0 ? 96 : Math.max(36, Math.round(96 / aspect));
+
+    const stepX = spanX / (GRID_SIZE_X - 1);
+    const stepZ = spanZ / (GRID_SIZE_Z - 1);
 
     const positions = [];
     const normals = [];
@@ -579,15 +612,15 @@ export default function MarsGaussianTerrainCanvas({
       'planum_boreum', 'polar_north'
     ].includes(box.id);
 
-    for (let j = 0; j < GRID_SIZE; j++) {
-      rawMetersGrid[j] = new Float32Array(GRID_SIZE);
-      const vNorm = j / (GRID_SIZE - 1); // 0 (North) to 1 (South)
-      const lat = box.latMax - vNorm * (box.latMax - box.latMin);
+    for (let j = 0; j < GRID_SIZE_Z; j++) {
+      rawMetersGrid[j] = new Float32Array(GRID_SIZE_X);
+      const vNorm = j / (GRID_SIZE_Z - 1); // 0 (North) to 1 (South)
+      const lat = latMax - vNorm * (latMax - latMin);
       const vProc = vNorm * 2 - 1;
 
-      for (let i = 0; i < GRID_SIZE; i++) {
-        const uNorm = i / (GRID_SIZE - 1); // 0 (West) to 1 (East)
-        const lng = box.lngMin + uNorm * (box.lngMax - box.lngMin);
+      for (let i = 0; i < GRID_SIZE_X; i++) {
+        const uNorm = i / (GRID_SIZE_X - 1); // 0 (West) to 1 (East)
+        const lng = lngMin + uNorm * (lngMax - lngMin);
         const uProc = uNorm * 2 - 1;
 
         let sampledMeters = 0;
@@ -613,13 +646,13 @@ export default function MarsGaussianTerrainCanvas({
     }
 
     // Apply 3x3 Median Outlier Filter + Gradient Clamping (Guarantees Zero Spikes)
-    const cleanedMetersGrid = applyAntiSpikeFilter(rawMetersGrid, GRID_SIZE, isNamedPreset ? 2500.0 : 800.0);
+    const cleanedMetersGrid = applyAntiSpikeFilter(rawMetersGrid, GRID_SIZE_X, GRID_SIZE_Z, isNamedPreset ? 2500.0 : 800.0);
 
     // Track real min/max meters
     let sampleMinM = Infinity;
     let sampleMaxM = -Infinity;
-    for (let j = 0; j < GRID_SIZE; j++) {
-      for (let i = 0; i < GRID_SIZE; i++) {
+    for (let j = 0; j < GRID_SIZE_Z; j++) {
+      for (let i = 0; i < GRID_SIZE_X; i++) {
         const m = cleanedMetersGrid[j][i];
         if (m < sampleMinM) sampleMinM = m;
         if (m > sampleMaxM) sampleMaxM = m;
@@ -630,42 +663,43 @@ export default function MarsGaussianTerrainCanvas({
     setElevationStats({
       minM: Math.round(sampleMinM),
       maxM: Math.round(sampleMaxM),
-      reliefM: Math.round(realReliefM)
+      reliefM: Math.round(realReliefM),
+      widthKm,
+      heightKm
     });
 
     // Map meters to 3D scene units (Y-axis) with smooth vertical scale
-    // Scale factor keeps elevation proportional to the 46-unit span
     const yRangeUnits = Math.min(18.0, Math.max(2.5, (realReliefM / 1000.0) * 1.6)) * elevationExaggeration;
     const heightMap = [];
 
-    for (let j = 0; j < GRID_SIZE; j++) {
-      heightMap[j] = new Float32Array(GRID_SIZE);
-      for (let i = 0; i < GRID_SIZE; i++) {
+    for (let j = 0; j < GRID_SIZE_Z; j++) {
+      heightMap[j] = new Float32Array(GRID_SIZE_X);
+      for (let i = 0; i < GRID_SIZE_X; i++) {
         const norm = (cleanedMetersGrid[j][i] - sampleMinM) / realReliefM;
         heightMap[j][i] = (norm - 0.45) * yRangeUnits;
       }
     }
 
     // Build geometry buffers
-    for (let j = 0; j < GRID_SIZE; j++) {
-      const zWorld = (j / (GRID_SIZE - 1)) * SPAN - halfSpan;
-      for (let i = 0; i < GRID_SIZE; i++) {
-        const xWorld = (i / (GRID_SIZE - 1)) * SPAN - halfSpan;
+    for (let j = 0; j < GRID_SIZE_Z; j++) {
+      const zWorld = (j / (GRID_SIZE_Z - 1)) * spanZ - halfSpanZ;
+      for (let i = 0; i < GRID_SIZE_X; i++) {
+        const xWorld = (i / (GRID_SIZE_X - 1)) * spanX - halfSpanX;
         const yWorld = heightMap[j][i];
 
         positions.push(xWorld, yWorld, zWorld);
 
-        const uNorm = i / (GRID_SIZE - 1);
-        const vNorm = j / (GRID_SIZE - 1);
+        const uNorm = i / (GRID_SIZE_X - 1);
+        const vNorm = j / (GRID_SIZE_Z - 1);
         uvs.push(uNorm, vNorm);
 
         // Finite differences normal vector
         const hL = i > 0 ? heightMap[j][i - 1] : yWorld;
-        const hR = i < GRID_SIZE - 1 ? heightMap[j][i + 1] : yWorld;
+        const hR = i < GRID_SIZE_X - 1 ? heightMap[j][i + 1] : yWorld;
         const hD = j > 0 ? heightMap[j - 1][i] : yWorld;
-        const hU = j < GRID_SIZE - 1 ? heightMap[j + 1][i] : yWorld;
+        const hU = j < GRID_SIZE_Z - 1 ? heightMap[j + 1][i] : yWorld;
 
-        const normVec = new THREE.Vector3(hL - hR, 2.0 * step, hD - hU).normalize();
+        const normVec = new THREE.Vector3((hL - hR) / (2.0 * stepX), 1.0, (hD - hU) / (2.0 * stepZ)).normalize();
         normals.push(normVec.x, normVec.y, normVec.z);
 
         const slopeDeg = Math.acos(Math.max(0, Math.min(1, normVec.y))) * (180 / Math.PI);
@@ -684,7 +718,7 @@ export default function MarsGaussianTerrainCanvas({
           // Sunlit ambient shadow contrast
           const shade = Math.max(0.35, normVec.dot(new THREE.Vector3(0.5, 0.8, 0.3).normalize()));
 
-          if (box.id === 'planum_boreum') {
+          if (box.id === 'planum_boreum' || box.id === 'polar_north') {
             // Polar ice cap: icy white with blueish frost
             const iceShade = 0.85 + elevNorm * 0.15;
             c.setRGB(iceShade * 0.95, iceShade * 0.96, iceShade * 1.0);
@@ -719,12 +753,12 @@ export default function MarsGaussianTerrainCanvas({
 
     // B. HIGH-RESOLUTION NASA SURFACE MESH
     const indices = [];
-    for (let j = 0; j < GRID_SIZE - 1; j++) {
-      for (let i = 0; i < GRID_SIZE - 1; i++) {
-        const a = j * GRID_SIZE + i;
-        const b = (j + 1) * GRID_SIZE + i;
-        const c = (j + 1) * GRID_SIZE + (i + 1);
-        const d = j * GRID_SIZE + (i + 1);
+    for (let j = 0; j < GRID_SIZE_Z - 1; j++) {
+      for (let i = 0; i < GRID_SIZE_X - 1; i++) {
+        const a = j * GRID_SIZE_X + i;
+        const b = (j + 1) * GRID_SIZE_X + i;
+        const c = (j + 1) * GRID_SIZE_X + (i + 1);
+        const d = j * GRID_SIZE_X + (i + 1);
 
         indices.push(a, b, d);
         indices.push(b, c, d);
@@ -773,11 +807,13 @@ export default function MarsGaussianTerrainCanvas({
     }
 
     // D. 3D INTERACTIVE PINS (Tailored to each scientific location)
-    const createWaypointPin = (x, z, label, elevStr, type = 'science') => {
-      const u = (x + halfSpan) / SPAN;
-      const v = (z + halfSpan) / SPAN;
-      const gridI = Math.min(GRID_SIZE - 1, Math.max(0, Math.floor(u * (GRID_SIZE - 1))));
-      const gridJ = Math.min(GRID_SIZE - 1, Math.max(0, Math.floor(v * (GRID_SIZE - 1))));
+    const createWaypointPin = (xRel, zRel, label, elevStr, type = 'science') => {
+      const x = xRel * halfSpanX;
+      const z = zRel * halfSpanZ;
+      const u = (xRel + 1.0) * 0.5;
+      const v = (zRel + 1.0) * 0.5;
+      const gridI = Math.min(GRID_SIZE_X - 1, Math.max(0, Math.floor(u * (GRID_SIZE_X - 1))));
+      const gridJ = Math.min(GRID_SIZE_Z - 1, Math.max(0, Math.floor(v * (GRID_SIZE_Z - 1))));
       const y = heightMap[gridJ][gridI];
 
       const pinGroup = new THREE.Group();
@@ -809,28 +845,28 @@ export default function MarsGaussianTerrainCanvas({
 
     if (box.id === 'olympus' || box.id === 'olympus_mons') {
       createWaypointPin(0, 0, 'Summit Caldera Complex', `${Math.round(sampleMaxM)} m`, 'base');
-      createWaypointPin(-14.2, -8.5, 'Basal Cliff Scarp', '6,000–8,000 m drop', 'hazard');
-      createWaypointPin(11.0, 10.2, 'Lava Channel Vent', `${Math.round(sampleMinM + realReliefM * 0.45)} m`, 'science');
+      createWaypointPin(-0.62, -0.38, 'Basal Cliff Scarp', '6,000–8,000 m drop', 'hazard');
+      createWaypointPin(0.48, 0.44, 'Lava Channel Vent', `${Math.round(sampleMinM + realReliefM * 0.45)} m`, 'science');
     } else if (box.id === 'valles' || box.id === 'valles_marineris') {
-      createWaypointPin(0, 2.5, 'Candor Chasma Floor', `${Math.round(sampleMinM)} m`, 'science');
-      createWaypointPin(-12.0, -11.0, 'Ophir Wall Plateau', `${Math.round(sampleMaxM)} m`, 'base');
-      createWaypointPin(8.5, -4.2, 'Steep Fault Scarp', 'Slope: 32.5°', 'hazard');
+      createWaypointPin(0, 0.1, 'Candor Chasma Floor', `${Math.round(sampleMinM)} m`, 'science');
+      createWaypointPin(-0.52, -0.48, 'Ophir Wall Plateau', `${Math.round(sampleMaxM)} m`, 'base');
+      createWaypointPin(0.38, -0.18, 'Steep Fault Scarp', 'Slope: 32.5°', 'hazard');
     } else if (box.id === 'gale' || box.id === 'gale_crater') {
-      createWaypointPin(2.0, 3.2, 'Mount Sharp (Aeolis Mons)', `${Math.round(sampleMaxM)} m`, 'science');
-      createWaypointPin(-11.0, -8.0, 'Bradbury Landing Floor', `${Math.round(sampleMinM)} m`, 'base');
-      createWaypointPin(14.5, 5.0, 'North Rim Crest', 'Elevation +1,100 m', 'hazard');
+      createWaypointPin(0.08, 0.14, 'Mount Sharp (Aeolis Mons)', `${Math.round(sampleMaxM)} m`, 'science');
+      createWaypointPin(-0.48, -0.35, 'Bradbury Landing Floor', `${Math.round(sampleMinM)} m`, 'base');
+      createWaypointPin(0.62, 0.22, 'North Rim Crest', 'Elevation +1,100 m', 'hazard');
     } else if (box.id === 'jezero' || box.id === 'jezero_crater') {
-      createWaypointPin(-8.5, 0.0, 'Neretva Delta Fan', `${Math.round(sampleMinM + 250)} m`, 'science');
+      createWaypointPin(-0.38, 0.0, 'Neretva Delta Fan', `${Math.round(sampleMinM + 250)} m`, 'science');
       createWaypointPin(0, 0, 'Sedimentary Lakebed', `${Math.round(sampleMinM)} m`, 'base');
-      createWaypointPin(13.0, 6.0, 'Belva Crater Rim', `${Math.round(sampleMaxM)} m`, 'hazard');
+      createWaypointPin(0.56, 0.26, 'Belva Crater Rim', `${Math.round(sampleMaxM)} m`, 'hazard');
     } else if (box.id === 'planum_boreum' || box.id === 'polar_north') {
       createWaypointPin(0, 0, 'Planum Boreum Ice Dome', `${Math.round(sampleMaxM)} m`, 'base');
-      createWaypointPin(-9.0, 4.0, 'Chasma Boreale Trough', `${Math.round(sampleMinM)} m`, 'hazard');
-      createWaypointPin(7.5, -6.5, 'Spiral Ice Trough', `${Math.round(sampleMinM + 600)} m`, 'science');
+      createWaypointPin(-0.42, 0.18, 'Chasma Boreale Trough', `${Math.round(sampleMinM)} m`, 'hazard');
+      createWaypointPin(0.35, -0.28, 'Spiral Ice Trough', `${Math.round(sampleMinM + 600)} m`, 'science');
     } else {
       createWaypointPin(0, 0, box.name, `${Math.round(sampleMaxM)} m`, 'base');
-      createWaypointPin(-11.5, -7.2, 'Escarpment Rim', 'Slope: 18.4°', 'hazard');
-      createWaypointPin(9.8, 8.4, 'Lowland Floor', `${Math.round(sampleMinM)} m`, 'science');
+      createWaypointPin(-0.5, -0.32, 'Escarpment Rim', 'Slope: 18.4°', 'hazard');
+      createWaypointPin(0.42, 0.36, 'Lowland Floor', `${Math.round(sampleMinM)} m`, 'science');
     }
 
   }, [box.latMin, box.latMax, box.lngMin, box.lngMax, box.id, renderMode, elevationExaggeration, contourStep, showContours, showSlopeHazards, molaLoaded]);
@@ -876,48 +912,9 @@ export default function MarsGaussianTerrainCanvas({
           {onBackToMap && (
             <button className="t-change-area-btn" onClick={onBackToMap}>
               <ArrowLeft size={13} />
-              <span>Change Area on Map</span>
+              <span>Draw / Change Area on Map</span>
             </button>
           )}
-
-          {/* Mode Selector Strip */}
-          <div className="terrain-mode-pills-bar">
-            <button
-              className={`t-mode-btn ${renderMode === 'splats' ? 'active' : ''}`}
-              onClick={() => setRenderMode('splats')}
-              title="3D Gaussian Splats: Dense photorealistic particle cloud with view-dependent radiance"
-            >
-              <Sparkles size={12} />
-              <span>3D Gaussian Splats</span>
-            </button>
-
-            <button
-              className={`t-mode-btn ${renderMode === 'textured' ? 'active' : ''}`}
-              onClick={() => setRenderMode('textured')}
-              title="NASA HiRISE / Viking Ortho Surface Mesh"
-            >
-              <Layers size={12} />
-              <span>NASA Mesh</span>
-            </button>
-
-            <button
-              className={`t-mode-btn ${renderMode === 'elevation' ? 'active' : ''}`}
-              onClick={() => setRenderMode('elevation')}
-              title="MOLA Topographic Elevation Color Ramp"
-            >
-              <Mountain size={12} />
-              <span>MOLA Topo</span>
-            </button>
-
-            <button
-              className={`t-mode-btn ${renderMode === 'slope' ? 'active' : ''}`}
-              onClick={() => setRenderMode('slope')}
-              title="Slope Hazard Trafficability Heatmap"
-            >
-              <AlertTriangle size={12} />
-              <span>Slope Hazards</span>
-            </button>
-          </div>
         </div>
       </div>
 
@@ -981,6 +978,7 @@ export default function MarsGaussianTerrainCanvas({
             <Compass size={13} className="text-accent" />
             <span>
               {box.latMin.toFixed(1)}° to {box.latMax.toFixed(1)}° Lat • {box.lngMin.toFixed(1)}° to {box.lngMax.toFixed(1)}° Lng
+              {elevationStats.widthKm ? ` • ${elevationStats.widthKm} × ${elevationStats.heightKm} km` : ''}
             </span>
           </div>
           <div className="thud-metric-pill">
