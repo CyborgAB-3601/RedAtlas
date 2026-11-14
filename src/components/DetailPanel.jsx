@@ -167,24 +167,24 @@ export default function DetailPanel({
   }, [activeMission, routeObjectives, bLat, bLng]);
 
   // Is there any active path currently?
-  const hasActivePath = Boolean(activeMission || (routeObjectives && routeObjectives.length > 0));
-
   // Is this specific place part of the active path?
   const isInPath = isAddedToRoute || allPathPoints.some((p) => p.id === activeLoc.id);
 
   // Compute total expedition distance across all stages
   const totalExpeditionKm = useMemo(() => {
-    if (allPathPoints.length < 2) return 0;
-    let dist = 0;
-    for (let i = 0; i < allPathPoints.length - 1; i++) {
-      dist += getMarsTraverseDistanceKm(
-        allPathPoints[i].lat,
-        allPathPoints[i].lng,
-        allPathPoints[i + 1].lat,
-        allPathPoints[i + 1].lng
-      );
+    if (allPathPoints.length >= 2) {
+      let dist = 0;
+      for (let i = 0; i < allPathPoints.length - 1; i++) {
+        dist += getMarsTraverseDistanceKm(
+          allPathPoints[i].lat,
+          allPathPoints[i].lng,
+          allPathPoints[i + 1].lat,
+          allPathPoints[i + 1].lng
+        );
+      }
+      return dist;
     }
-    return dist;
+    return 0;
   }, [allPathPoints]);
 
   // Compute distance from start base to active location along the path
@@ -195,10 +195,16 @@ export default function DetailPanel({
       [targetLat, targetLng] = parseLatLng(activeLoc.coords.lat, activeLoc.coords.lng);
     }
 
+    // Distance directly from Chryse Planitia Base to this active marker
+    const distDirectKm = (activeLoc.id === 'proposed_base')
+      ? 0
+      : getMarsTraverseDistanceKm(bLat, bLng, targetLat, targetLng);
+
     // If active location is in the path, calculate cumulative path distance to it
     const activeIdx = allPathPoints.findIndex((p) => p.id === activeLoc.id);
-    let distKm = 0;
+    let distKm = distDirectKm;
     if (activeIdx > 0) {
+      distKm = 0;
       for (let i = 0; i < activeIdx; i++) {
         distKm += getMarsTraverseDistanceKm(
           allPathPoints[i].lat,
@@ -207,8 +213,14 @@ export default function DetailPanel({
           allPathPoints[i + 1].lng
         );
       }
-    } else {
-      distKm = getMarsTraverseDistanceKm(bLat, bLng, targetLat, targetLng);
+    }
+
+    if (distKm === 0) {
+      return {
+        distFromBaseKm: 0,
+        walkTimeStr: '0 hrs (Habitat Outpost)',
+        roverTimeStr: '0 hrs (Habitat Outpost)'
+      };
     }
 
     // Astronaut EVA Walk: 3.8 km/h, 8h/Sol limit
@@ -225,6 +237,26 @@ export default function DetailPanel({
       roverTimeStr: roverStr
     };
   }, [activeLoc, allPathPoints, bLat, bLng]);
+
+  // Dynamic values for Tile 1 (Total Distance & Context)
+  const { displayTotalKm, displayTotalDesc } = useMemo(() => {
+    if (allPathPoints.length >= 2 && isInPath) {
+      return {
+        displayTotalKm: totalExpeditionKm,
+        displayTotalDesc: `${allPathPoints.length - 1} waypoint stages`
+      };
+    }
+    if (allPathPoints.length >= 2 && !isInPath) {
+      return {
+        displayTotalKm: totalExpeditionKm + distFromBaseKm,
+        displayTotalDesc: 'With this place added'
+      };
+    }
+    return {
+      displayTotalKm: distFromBaseKm,
+      displayTotalDesc: distFromBaseKm === 0 ? 'Habitat Outpost' : `Direct safe corridor`
+    };
+  }, [allPathPoints, isInPath, totalExpeditionKm, distFromBaseKm, activeLoc.name]);
 
   const tabs = ['Overview', 'Terrain', 'Resources', 'Hazards'];
 
@@ -345,57 +377,51 @@ export default function DetailPanel({
               </div>
             </div>
 
-            {/* Expedition Traverse Distance & Travel Time (Displayed when paths/routes are selected) */}
-            {hasActivePath && (
-              <div className="key-insights-section expedition-traverse-metrics">
-                <h4 className="insights-header-title">Expedition Traverse & Travel Time</h4>
-                <div className="insights-quad-grid">
-                  <div className="insight-tile">
-                    <div className="insight-icon-circle">
-                      <Route size={16} strokeWidth={1.8} style={{ color: '#FF7043' }} />
-                    </div>
-                    <div className="insight-text-group">
-                      <span className="insight-title">{totalExpeditionKm.toLocaleString()} km Total</span>
-                      <span className="insight-description">
-                        {allPathPoints.length <= 2
-                          ? 'Start base to target'
-                          : `${allPathPoints.length - 1} waypoint stages`}
-                      </span>
-                    </div>
+            {/* Expedition Traverse Distance & Travel Time (Dynamically updates for clicked marker) */}
+            <div className="key-insights-section expedition-traverse-metrics">
+              <h4 className="insights-header-title">Expedition Traverse & Travel Time</h4>
+              <div className="insights-quad-grid">
+                <div className="insight-tile">
+                  <div className="insight-icon-circle">
+                    <Route size={16} strokeWidth={1.8} style={{ color: '#FF7043' }} />
                   </div>
-
-                  <div className="insight-tile">
-                    <div className="insight-icon-circle">
-                      <Navigation size={16} strokeWidth={1.8} style={{ color: '#00E5FF' }} />
-                    </div>
-                    <div className="insight-text-group">
-                      <span className="insight-title">{distFromBaseKm.toLocaleString()} km</span>
-                      <span className="insight-description">From Chryse Base Alpha</span>
-                    </div>
+                  <div className="insight-text-group">
+                    <span className="insight-title">{displayTotalKm.toLocaleString()} km Total</span>
+                    <span className="insight-description">{displayTotalDesc}</span>
                   </div>
+                </div>
 
-                  <div className="insight-tile">
-                    <div className="insight-icon-circle">
-                      <Footprints size={16} strokeWidth={1.8} style={{ color: '#FFB74D' }} />
-                    </div>
-                    <div className="insight-text-group">
-                      <span className="insight-title">{walkTimeStr}</span>
-                      <span className="insight-description">Astronaut Walk (3.8 km/h)</span>
-                    </div>
+                <div className="insight-tile">
+                  <div className="insight-icon-circle">
+                    <Navigation size={16} strokeWidth={1.8} style={{ color: '#00E5FF' }} />
                   </div>
+                  <div className="insight-text-group">
+                    <span className="insight-title">{distFromBaseKm.toLocaleString()} km</span>
+                    <span className="insight-description">From Chryse Base Alpha</span>
+                  </div>
+                </div>
 
-                  <div className="insight-tile">
-                    <div className="insight-icon-circle">
-                      <Truck size={16} strokeWidth={1.8} style={{ color: '#10B981' }} />
-                    </div>
-                    <div className="insight-text-group">
-                      <span className="insight-title">{roverTimeStr}</span>
-                      <span className="insight-description">Pressurized Rover (14 km/h)</span>
-                    </div>
+                <div className="insight-tile">
+                  <div className="insight-icon-circle">
+                    <Footprints size={16} strokeWidth={1.8} style={{ color: '#FFB74D' }} />
+                  </div>
+                  <div className="insight-text-group">
+                    <span className="insight-title">{walkTimeStr}</span>
+                    <span className="insight-description">Astronaut Walk (3.8 km/h)</span>
+                  </div>
+                </div>
+
+                <div className="insight-tile">
+                  <div className="insight-icon-circle">
+                    <Truck size={16} strokeWidth={1.8} style={{ color: '#10B981' }} />
+                  </div>
+                  <div className="insight-text-group">
+                    <span className="insight-title">{roverTimeStr}</span>
+                    <span className="insight-description">Pressurized Rover (14 km/h)</span>
                   </div>
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Key Insights Section */}
             <div className="key-insights-section">
