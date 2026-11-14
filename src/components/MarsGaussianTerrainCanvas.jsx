@@ -240,13 +240,13 @@ function generateScientificLocationElevation(locId, u, v) {
     case 'valles_marineris': {
       // Surrounding plateau: +3,500m; Canyon chasma floor: -4,500m (Relief: 8,000m)
       const plateauElev = 3500;
-      
+
       // Canyon rift fault line with natural sinuous rift axis
       const canyonAxis = Math.abs(v + Math.sin(u * 2.4) * 0.16);
-      
+
       // Deep rift gorge (7,500m depth drop with layered stepped canyon walls)
       const canyonDrop = -8000.0 / (1.0 + Math.pow(canyonAxis / 0.38, 4.0));
-      
+
       // Stratified terrace benches on canyon walls
       const wallTerraces = Math.sin(canyonAxis * 36.0) * 220.0 * Math.exp(-canyonAxis * 2.2);
 
@@ -260,7 +260,7 @@ function generateScientificLocationElevation(locId, u, v) {
     case 'gale_crater': {
       // Crater rim: +1,200m; Crater floor: -4,500m; Mount Sharp (Aeolis Mons): +1,000m (Relief: 5,500m)
       const floorElev = -4500;
-      
+
       // Circular impact crater rim (diameter ~154 km)
       const rimRadius = 0.82;
       const rimDist = Math.abs(dist - rimRadius);
@@ -306,7 +306,7 @@ function generateScientificLocationElevation(locId, u, v) {
       // Vastitas Borealis plains: -4,000m; Polar Ice Dome: -1,800m (Relief: 2,200m)
       const plainsElev = -4000;
       const iceDome = 2200 * Math.exp(-dist * 1.2);
-      
+
       // Spiral Chasmata troughs (pinwheel wind-carved spiral canyons)
       const spiralPhase = angle * 3.0 + dist * 5.0;
       const spiralCanyons = -320.0 * Math.pow(Math.sin(spiralPhase * 0.5), 4.0) * (dist > 0.2 && dist < 0.8 ? 1.0 : 0.0);
