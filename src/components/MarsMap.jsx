@@ -86,6 +86,25 @@ export const REGIONAL_CONFIGS = {
   }
 };
 
+function parseCoords(coordsStr) {
+  if (!coordsStr || typeof coordsStr !== 'string') return null;
+  const parts = coordsStr.split(',');
+  if (parts.length < 2) return null;
+  const latStr = parts[0].trim();
+  const lngStr = parts[1].trim();
+  const lat = parseFloat(latStr) * (latStr.includes('S') ? -1 : 1);
+  const lng = parseFloat(lngStr) * (lngStr.includes('W') ? -1 : 1);
+  if (isNaN(lat) || isNaN(lng)) return null;
+  return { lat, lng };
+}
+
+function normalizeLng(lng) {
+  let val = lng;
+  while (val > 180) val -= 360;
+  while (val < -180) val += 360;
+  return val;
+}
+
 export default function MarsMap({
   selectedLocation,
   onSelectLocation,
@@ -106,6 +125,73 @@ export default function MarsMap({
   const [activeTool, setActiveTool] = useState('Explore');
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isDestinationSet, setIsDestinationSet] = useState(false);
+
+  // Real-time map viewport bounds tracking for the dynamic Minimap camera box
+  const [mapViewportState, setMapViewportState] = useState({
+    north: 50,
+    south: -50,
+    west: -115,
+    east: 45,
+    centerLat: 0,
+    centerLng: -35,
+    zoom: 1
+  });
+
+  // Calculate dynamic bounding box rectangle on the Mars Global minimap
+  const minimapRectStyle = React.useMemo(() => {
+    let cLat = mapViewportState.centerLat;
+    let cLng = mapViewportState.centerLng;
+    let zoom = mapViewportState.zoom || 1;
+
+    if (selectedLocation?.coords?.lat && selectedLocation?.coords?.lng && zoom > 1.4) {
+      const latVal = parseFloat(selectedLocation.coords.lat) * (selectedLocation.coords.lat.includes('S') ? -1 : 1);
+      const lngVal = parseFloat(selectedLocation.coords.lng) * (selectedLocation.coords.lng.includes('W') ? -1 : 1);
+      if (!isNaN(latVal) && !isNaN(lngVal)) {
+        cLat = latVal;
+        cLng = lngVal;
+      }
+    }
+
+    const latPercent = ((90 - cLat) / 180) * 100;
+    const lngPercent = ((normalizeLng(cLng) + 180) / 360) * 100;
+
+    const widthPct = Math.max(12, Math.min(85, 80 / Math.pow(1.85, Math.max(0, zoom - 1))));
+    const heightPct = Math.max(10, Math.min(75, 60 / Math.pow(1.85, Math.max(0, zoom - 1))));
+
+    const leftClamped = Math.max(widthPct / 2, Math.min(100 - widthPct / 2, lngPercent));
+    const topClamped = Math.max(heightPct / 2, Math.min(100 - heightPct / 2, latPercent));
+
+    return {
+      left: `${leftClamped}%`,
+      top: `${topClamped}%`,
+      width: `${widthPct}%`,
+      height: `${heightPct}%`,
+      transform: 'translate(-50%, -50%)',
+      position: 'absolute'
+    };
+  }, [mapViewportState, selectedLocation?.coords, zoomLevel]);
+
+  // Click on minimap flies to that region on Mars
+  const handleMinimapClick = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = (e.clientX - rect.left) / rect.width;
+    const clickY = (e.clientY - rect.top) / rect.height;
+
+    const targetLng = (clickX * 360) - 180;
+    const targetLat = 90 - (clickY * 180);
+
+    if (viewMode === '3D') {
+      const latStr = `${Math.abs(targetLat).toFixed(1)}° ${targetLat >= 0 ? 'N' : 'S'}`;
+      const lngStr = `${Math.abs(targetLng).toFixed(1)}° ${targetLng >= 0 ? 'E' : 'W'}`;
+      onSelectLocation({
+        id: 'minimap_target',
+        name: `Mars (${latStr}, ${lngStr})`,
+        coords: { lat: latStr, lng: lngStr }
+      });
+    } else if (leafletRef.current?.flyToLocation) {
+      leafletRef.current.flyToLocation(targetLat, targetLng, Math.max(2, zoomLevel));
+    }
+  };
 
   // Leaflet official Mars Trek slippy map ref
   const leafletRef = useRef(null);
@@ -587,34 +673,38 @@ export default function MarsMap({
 
   return (
     <div className={`mars-map-card ${isExpanded ? 'is-expanded-view' : ''}`}>
-      {/* ---------------- NORMAL ORBITAL MAP VIEW ---------------- */}
+      {/* ---------------- LIVE INTERACTIVE MARS MAP (2D LEAFLET / 3D GLOBE) ---------------- */}
+      {/* The authentic map is always preserved and active in full resolution across both normal & expanded views */}
+      <div className={`mars-map-viewport ${isExpanded ? 'expanded-viewport' : ''}`}>
+        {viewMode === '3D' ? (
+          <div className="nasa-3d-frame-container animate-fade-in" style={{ width: '100%', height: '100%' }}>
+            <Mars3DGlobe
+              selectedLocation={selectedLocation}
+              onSelectLocation={onSelectLocation}
+              globalView={globalView}
+              viewMode={viewMode}
+              zoomLevel={zoomLevel}
+              isExpanded={isExpanded}
+            />
+          </div>
+        ) : (
+          <MarsTrekLeafletMap
+            ref={leafletRef}
+            viewMode={viewMode}
+            globalView={globalView}
+            selectedLocation={selectedLocation}
+            onSelectLocation={onSelectLocation}
+            onZoomChange={(newZoom) => setZoomLevel(newZoom)}
+            onViewportChange={(vp) => setMapViewportState(vp)}
+            activeWaypoints={activeWaypoints}
+            isExpanded={isExpanded}
+          />
+        )}
+      </div>
+
+      {/* ---------------- NORMAL ORBITAL MAP VIEW OVERLAYS ---------------- */}
       {!isExpanded && (
         <>
-          {/* 3D Interactive View Mode: NASA JPL Mars Trek 3D Globe */}
-          {viewMode === '3D' ? (
-            <div className="nasa-3d-frame-container animate-fade-in">
-              <Mars3DGlobe
-                selectedLocation={selectedLocation}
-                onSelectLocation={onSelectLocation}
-                globalView={globalView}
-                viewMode={viewMode}
-                zoomLevel={zoomLevel}
-              />
-            </div>
-          ) : (
-            <div className="mars-map-viewport">
-              <MarsTrekLeafletMap
-                ref={leafletRef}
-                viewMode={viewMode}
-                globalView={globalView}
-                selectedLocation={selectedLocation}
-                onSelectLocation={onSelectLocation}
-                onZoomChange={(newZoom) => setZoomLevel(newZoom)}
-                activeWaypoints={activeWaypoints}
-              />
-            </div>
-          )}
-
           {/* Top Left Title Overlay with Dynamic Collision-Adaptive Position */}
           <div
             ref={titleOverlayRef}
@@ -741,159 +831,50 @@ export default function MarsMap({
         </>
       )}
 
-      {/* ---------------- EXPANDED 3D CANYON MAP VIEW ---------------- */}
+      {/* ---------------- EXPANDED TACTICAL FULL VIEW OVERLAYS ---------------- */}
+      {/* Overlays float on top of the live map with interactive destination card and dynamic minimap */}
       {isExpanded && (
-        <div className="expanded-map-canvas-container">
-          {/* Main 3D Perspective Canyon Terrain Image */}
-          <div className="expanded-terrain-viewport">
-            <img
-              src="/assets/mars_expanded_terrain.jpg"
-              alt="Mars Perspective Surface Canyon"
-              className="expanded-terrain-img"
-              draggable={false}
-            />
-
-            {/* Cinematic atmospheric depth and horizon haze */}
-            <div className="expanded-atmosphere-scrim" />
-
-            {/* Glowing Trajectory SVG Overlay */}
-            <svg
-              className="expanded-svg-route-overlay"
-              viewBox="0 0 1000 600"
-              preserveAspectRatio="none"
-            >
-              <defs>
-                <filter id="expandedRouteGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3.5" result="blur" />
-                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                </filter>
-                <linearGradient id="expGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.85" />
-                  <stop offset="50%" stopColor="#FFFFFF" stopOpacity="1" />
-                  <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.8" />
-                </linearGradient>
-              </defs>
-
-              {/* Underlying dark shadow path */}
-              <path
-                d={expandedRouteSvgPath}
-                fill="none"
-                stroke="rgba(10, 8, 6, 0.5)"
-                strokeWidth="4"
-                strokeLinecap="round"
-              />
-              {/* Animated glowing dotted route */}
-              <path
-                d={expandedRouteSvgPath}
-                fill="none"
-                stroke="url(#expGrad)"
-                strokeWidth="2.5"
-                strokeDasharray="4 6"
-                strokeLinecap="round"
-                className="expanded-route-dash-animated"
-                filter="url(#expandedRouteGlow)"
-              />
-
-              {/* Dotted branch to Drone 02 and Hazard Area */}
-              <path
-                d="M 542 264 L 765 210 M 765 210 L 860 246"
-                fill="none"
-                stroke="rgba(255, 255, 255, 0.7)"
-                strokeWidth="2"
-                strokeDasharray="3 5"
-              />
-            </svg>
-
-            {/* Pulsating Hazard Zone */}
-            <div className="hazard-zone-wrapper" style={{ left: '86%', top: '41%' }}>
-              <div className="hazard-pulsing-circle" />
-              <div className="hazard-pulsing-circle delay" />
-              <div className="hazard-center-badge">
-                <AlertTriangle size={15} className="hazard-alert-icon" />
-              </div>
-            </div>
-
-            {/* Waypoints rendered on the 3D surface */}
-            {expandedWaypoints.map((wp) => {
-              const isSelected = selectedLocation?.id === wp.id;
-              if (wp.isBase) {
-                return (
-                  <div
-                    key={wp.id}
-                    className={`expanded-base-callout-marker ${isSelected ? 'selected' : ''}`}
-                    style={{ left: `${wp.x}%`, top: `${wp.y}%` }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectLocation({ id: 'proposed_base', name: 'Proposed Base Site' });
-                    }}
-                  >
-                    {/* Concentric ground pulse */}
-                    <div className="base-radar-rings-wrap" style={{ left: '-8px', top: '24px' }}>
-                      <div className="radar-ring r1" />
-                      <div className="radar-ring r2" />
-                      <div className="radar-ring r3" />
-                      <div className="radar-dot" />
-                    </div>
-
-                    {/* Prominent White Glass Callout Pill */}
-                    <div className="base-prominent-pill">
-                      <div className="base-pill-flag-box">
-                        <Flag size={14} className="base-pill-flag-icon" />
-                      </div>
-                      <div className="base-pill-text-col">
-                        <span className="base-pill-title">{wp.name}</span>
-                        <span className="base-pill-coords">{wp.coords}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-
-              const Icon = wp.icon || CircleDot;
-              return (
-                <div
-                  key={wp.id}
-                  className={`expanded-tactical-marker ${isSelected ? 'selected' : ''}`}
-                  style={{ left: `${wp.x}%`, top: `${wp.y}%` }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectLocation({ id: wp.id, name: wp.name });
-                  }}
-                >
-                  {/* Waypoint Pill */}
-                  <div className="tactical-marker-pill">
-                    <div className="tactical-marker-icon-box">
-                      <Icon size={13} />
-                    </div>
-                    <div className="tactical-marker-text-col">
-                      <span className="tactical-name">{wp.name}</span>
-                      <span className="tactical-sub">{wp.sub}</span>
-                    </div>
-                    {wp.hasArrow && <ArrowRight size={13} className="tactical-arrow" />}
-                  </div>
-
-                  {/* Ground anchor circle dot */}
-                  <div className="tactical-ground-dot" />
-                </div>
-              );
-            })}
+        <div className="expanded-map-canvas-container" style={{ pointerEvents: 'none' }}>
+          {/* Top Left Title Overlay in Expanded Mode */}
+          <div
+            className="map-top-left-overlay pushed-down"
+            style={{ pointerEvents: 'auto', zIndex: 30 }}
+          >
+            <span className="map-index-badge">04 EXPANDED</span>
+            <h1 className="map-main-title">{selectedLocation?.name || currentRegion.title}</h1>
+            <p className="map-description">
+              {selectedLocation?.subtitle || currentRegion.subtitle}
+            </p>
           </div>
 
-          {/* Top Right Controls (Compass + Zoom + Collapse) */}
-          <div className="expanded-top-right-bar">
+          {/* Top Right Controls (Layer Mode Switcher + Compass + Zoom + Collapse) */}
+          <div className="expanded-top-right-bar" style={{ pointerEvents: 'auto', zIndex: 35 }}>
+            {/* View Mode Switcher */}
+            <div className="view-mode-pill-group">
+              {['3D', 'Satellite', 'Elevation', 'Thermal'].map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className={`view-mode-btn ${viewMode === mode ? 'active' : ''}`}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+
             {/* Compass */}
-            <div className="expanded-compass-btn" title="North Orientation">
+            <div className="expanded-compass-btn" onClick={resetView} title="North Orientation (Reset)">
               <span className="exp-compass-needle" />
               <span className="exp-compass-n">N</span>
             </div>
 
             {/* Zoom Controls */}
             <div className="expanded-zoom-pill">
-              <button className="exp-zoom-btn" onClick={() => handleZoom(0.2)} title="Zoom In">
+              <button className="exp-zoom-btn" onClick={() => handleZoom(0.25)} title="Zoom In">
                 <Plus size={16} />
               </button>
               <div className="exp-zoom-divider" />
-              <button className="exp-zoom-btn" onClick={() => handleZoom(-0.2)} title="Zoom Out">
+              <button className="exp-zoom-btn" onClick={() => handleZoom(-0.25)} title="Zoom Out">
                 <Minus size={16} />
               </button>
               <div className="exp-zoom-divider" />
@@ -912,7 +893,7 @@ export default function MarsMap({
           </div>
 
           {/* Bottom Left Floating Destination Card (White Glassmorphic) */}
-          <div className="expanded-destination-card">
+          <div className="expanded-destination-card" style={{ pointerEvents: 'auto', zIndex: 30 }}>
             {/* Top Row: Thumbnail + Info */}
             <div className="dest-card-top-row">
               {/* Landscape Preview Image */}
@@ -1010,13 +991,12 @@ export default function MarsMap({
             </div>
           </div>
 
-          {/* Bottom Right Floating Minimap */}
-          <div className="expanded-minimap-card">
+          {/* Bottom Right Floating Minimap with Dynamic Camera Zoom Bounding Box */}
+          <div className="expanded-minimap-card" style={{ pointerEvents: 'auto', zIndex: 30 }}>
             <div className="minimap-header">
               <div className="minimap-title-group">
                 <Grid size={13} className="minimap-globe-icon" />
-                <span className="minimap-title-text">Mars Global View</span>
-                <ChevronDown size={13} />
+                <span className="minimap-title-text">{globalView || 'Mars Global View'}</span>
               </div>
               <button
                 className="minimap-expand-btn"
@@ -1027,29 +1007,60 @@ export default function MarsMap({
               </button>
             </div>
 
-            {/* 3D Global Mars View Thumbnail */}
-            <div className="minimap-globe-wrap">
+            {/* Interactive Mars Global View with Live Camera Bounding Box */}
+            <div
+              className="minimap-globe-wrap"
+              onClick={handleMinimapClick}
+              title="Click on Mars to re-center map"
+            >
               <img
-                src="/assets/mars_orbital_map.jpg"
-                alt="Mars Globe Overview"
+                src="/assets/nasa_jpl_marstrek_satellite.jpg"
+                alt="Mars Global Overview"
                 className="minimap-globe-img"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = "/assets/mars_orbital_map.jpg";
+                }}
               />
-              {/* Highlighted Bounding Camera Rect */}
-              <div className="minimap-camera-rect" />
+
+              {/* Dynamic Camera Bounding Box tracking live map zoom & coordinates */}
+              <div
+                className="minimap-camera-rect"
+                style={minimapRectStyle}
+                title={`Viewing: Lat ${mapViewportState.centerLat.toFixed(1)}°, Lng ${mapViewportState.centerLng.toFixed(1)}° (Zoom ${mapViewportState.zoom})`}
+              >
+                <div className="rect-center-crosshair" />
+              </div>
+
               {/* Waypoint dots */}
-              <div className="minimap-dot" style={{ left: '42%', top: '48%' }} />
-              <div className="minimap-dot" style={{ left: '48%', top: '51%' }} />
-              <div className="minimap-dot" style={{ left: '55%', top: '46%' }} />
-              <div className="minimap-dot" style={{ left: '62%', top: '54%' }} />
+              {activeWaypoints.map((wp) => {
+                const wpCoords = parseCoords(wp.coords);
+                if (!wpCoords) return null;
+                const wpX = ((normalizeLng(wpCoords.lng) + 180) / 360) * 100;
+                const wpY = ((90 - wpCoords.lat) / 180) * 100;
+                const isSelected = selectedLocation?.id === wp.id;
+                return (
+                  <div
+                    key={wp.id}
+                    className={`minimap-dot ${isSelected ? 'active-selected' : ''}`}
+                    style={{ left: `${wpX}%`, top: `${wpY}%` }}
+                    title={`${wp.name} (${wp.coords})`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectLocation(wp);
+                    }}
+                  />
+                );
+              })}
             </div>
 
             {/* Scale Bar */}
             <div className="minimap-scale-strip">
               <div className="scale-nums">
                 <span>0</span>
-                <span>50</span>
-                <span>100</span>
-                <span>200 KM</span>
+                <span>{currentRegion.scaleTicks?.[1] || '50'}</span>
+                <span>{currentRegion.scaleTicks?.[2] || '100'}</span>
+                <span>{currentRegion.scaleTicks?.[3] || '200 KM'}</span>
               </div>
               <div className="scale-bar-line">
                 <div className="scale-notch" style={{ left: '0%' }} />
@@ -1061,7 +1072,7 @@ export default function MarsMap({
           </div>
 
           {/* Bottom Floating Dock / Toolbar */}
-          <div className="expanded-floating-dock-wrap">
+          <div className="expanded-floating-dock-wrap" style={{ pointerEvents: 'auto', zIndex: 30 }}>
             <div className="expanded-floating-dock">
               {dockTools.map((tool) => {
                 const isActive = activeTool === tool.name;

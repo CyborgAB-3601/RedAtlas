@@ -32,6 +32,7 @@ export default function Sidebar({ activeSection, setActiveSection, onExploreProm
               key={item.id}
               onClick={() => setActiveSection(item.id)}
               className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
+              title={item.label}
             >
               {isActive && <div className="active-accent-bar" />}
               <div className={`nav-icon-wrap ${isActive ? 'active-icon' : ''}`}>

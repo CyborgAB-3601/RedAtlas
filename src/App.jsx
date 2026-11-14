@@ -101,8 +101,11 @@ export default function App() {
 
   const handleSidebarClick = (sectionId) => {
     setActiveSection(sectionId);
-    // Ensure we are in Map navigation mode when clicking sidebar items
     setActiveNav('Map');
+    // If navigating to another sidebar module, collapse expanded map mode
+    if (sectionId !== 'Overview') {
+      setIsMapExpanded(false);
+    }
   };
 
   // Determine which central content to render

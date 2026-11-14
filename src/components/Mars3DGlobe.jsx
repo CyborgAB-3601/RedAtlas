@@ -89,7 +89,8 @@ export default function Mars3DGlobe({
   onSelectLocation,
   globalView = 'Mars Global View',
   viewMode = 'Satellite',
-  zoomLevel = 1.0
+  zoomLevel = 1.0,
+  isExpanded = false
 }) {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
@@ -107,6 +108,33 @@ export default function Mars3DGlobe({
   useEffect(() => {
     selectedLocationRef.current = selectedLocation;
   }, [selectedLocation]);
+
+  // Handle smooth resize on fullscreen expansion / collapse
+  useEffect(() => {
+    const resizeHandler = () => {
+      const container = containerRef.current;
+      const camera = cameraRef.current;
+      const renderer = rendererRef.current;
+      if (!container || !camera || !renderer) return;
+      const newWidth = container.clientWidth;
+      const newHeight = container.clientHeight;
+      if (newWidth === 0 || newHeight === 0) return;
+      camera.aspect = newWidth / newHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(newWidth, newHeight);
+    };
+
+    const t0 = setTimeout(resizeHandler, 20);
+    const t1 = setTimeout(resizeHandler, 150);
+    const t2 = setTimeout(resizeHandler, 350);
+    const t3 = setTimeout(resizeHandler, 550);
+    return () => {
+      clearTimeout(t0);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [isExpanded]);
 
   // Smooth fly-to camera animation refs
   const isFlyingRef = useRef(false);
@@ -641,13 +669,17 @@ export default function Mars3DGlobe({
       if (!container || !camera || !renderer) return;
       const newWidth = container.clientWidth;
       const newHeight = container.clientHeight;
+      if (newWidth === 0 || newHeight === 0) return;
       camera.aspect = newWidth / newHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(newWidth, newHeight);
     };
     window.addEventListener('resize', handleResize);
+    const ro = new ResizeObserver(handleResize);
+    ro.observe(container);
 
     return () => {
+      ro.disconnect();
       cancelAnimationFrame(animationFrameId);
       controls.dispose();
       domElement.removeEventListener('click', handleCanvasClick);
