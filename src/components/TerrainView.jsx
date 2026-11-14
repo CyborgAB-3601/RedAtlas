@@ -56,7 +56,11 @@ export default function TerrainView({
   selectedLocation,
   onOpenHUD,
   isExpanded = false,
-  onToggleExpand
+  onToggleExpand,
+  pinnedLocations = [],
+  onAddPin,
+  onRemovePin,
+  onNavigateToMap
 }) {
   // Step 1: Default to Draw / Select Area on Satellite Map first, then 3D Gaussian Splat will come!
   const [activeTab, setActiveTab] = useState('map');
@@ -129,12 +133,17 @@ export default function TerrainView({
           }}
           isExpanded={isExpanded}
           onToggleExpand={onToggleExpand}
+          pinnedLocations={pinnedLocations}
+          onAddPin={onAddPin}
+          onRemovePin={onRemovePin}
+          onNavigateToMap={onNavigateToMap}
         />
       ) : (
         <MarsAreaBoundingBoxSelector
           activeBoundingBox={selectedBoundingBox}
           onSelectBoundingBox={(box) => setSelectedBoundingBox(box)}
           onGenerateGaussianSplat={handleGenerateGaussianSplat}
+          pinnedLocations={pinnedLocations}
         />
       )}
     </div>

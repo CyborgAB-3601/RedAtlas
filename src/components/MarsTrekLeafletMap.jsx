@@ -33,7 +33,9 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
     onZoomChange,
     onViewportChange,
     activeWaypoints = [],
-    isExpanded = false
+    isExpanded = false,
+    pinnedLocations = [],
+    onRemovePin
   },
   ref
 ) {
@@ -322,6 +324,44 @@ useEffect(() => {
 
     markersGroup.addLayer(marker);
   });
+
+  // Render Custom Pinned Markers Created from 3D Gaussian Splatting
+  if (pinnedLocations && pinnedLocations.length > 0) {
+    pinnedLocations.forEach((pin) => {
+      if (!pin.coords?.lat || !pin.coords?.lng) return;
+      const [lat, lng] = parseLatLng(pin.coords.lat, pin.coords.lng);
+      const isSelected = selectedLocation?.id === pin.id;
+
+      const html = `
+        <div class="custom-marked-pin-leaflet leaflet-custom-marker ${isSelected ? 'selected' : ''}">
+          <div class="pin-beacon-pulse"></div>
+          <div class="pin-beacon-core"></div>
+          <div class="pin-tag-badge">
+            <span class="pin-name-text">${pin.name}</span>
+            <span class="pin-elev-text">${pin.elevationVal || ''}</span>
+          </div>
+        </div>
+      `;
+
+      const customIcon = L.divIcon({
+        className: 'leaflet-custom-red-pin-wrapper',
+        html,
+        iconSize: [160, 40],
+        iconAnchor: [12, 20]
+      });
+
+      const pinMarker = L.marker([lat, lng], { icon: customIcon });
+
+      pinMarker.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        if (onSelectLocation) {
+          onSelectLocation(pin);
+        }
+      });
+
+      markersGroup.addLayer(pinMarker);
+    });
+  }
 
   // Draw route connecting exploration sites
   if (routeCoords.length >= 2) {

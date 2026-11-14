@@ -14,7 +14,10 @@ import {
   Sliders,
   ArrowLeft,
   ShieldCheck,
-  MapPin
+  MapPin,
+  X,
+  ExternalLink,
+  Plus
 } from 'lucide-react';
 
 // NASA Reference Data for Tharsis Volcanic Province
@@ -440,7 +443,11 @@ export default function MarsGaussianTerrainCanvas({
   onOpenHUD,
   onBackToMap,
   isExpanded = false,
-  onToggleExpand
+  onToggleExpand,
+  pinnedLocations = [],
+  onAddPin,
+  onRemovePin,
+  onNavigateToMap
 }) {
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
@@ -453,6 +460,7 @@ export default function MarsGaussianTerrainCanvas({
   const gaussianSplatsRef = useRef(null);
   const contourLinesRef = useRef(null);
   const pinsGroupRef = useRef(null);
+  const customPinsGroupRef = useRef(null);
   const hoverPinGroupRef = useRef(null);
   const terrainGeometryDataRef = useRef(null);
   const molaImageCanvasRef = useRef(null);
@@ -465,6 +473,7 @@ export default function MarsGaussianTerrainCanvas({
   const [showPins, setShowPins] = useState(true);
   const [pinProbeActive, setPinProbeActive] = useState(true);
   const [hoverElevation, setHoverElevation] = useState(null); // { x, y, z, lat, lng, elevM, slopeDeg }
+  const [hoveredCustomPin, setHoveredCustomPin] = useState(null); // custom pin under hover
   const [autoRotate, setAutoRotate] = useState(false);
   const [cameraPreset, setCameraPreset] = useState('orbit');
   const [elevationStats, setElevationStats] = useState({ minM: -2450, maxM: 1200, reliefM: 3650 });
@@ -602,36 +611,41 @@ export default function MarsGaussianTerrainCanvas({
     scene.add(pinsGroup);
     pinsGroupRef.current = pinsGroup;
 
-    // Interactive Hover Pin & Reticle Probe Group
+    // Custom Marked Pins Group (Red Pins placed by user click)
+    const customPinsGroup = new THREE.Group();
+    scene.add(customPinsGroup);
+    customPinsGroupRef.current = customPinsGroup;
+
+    // Interactive Hover Pin & Reticle Probe Group (User created probe: Brilliant Red 0xFF2233)
     const hoverPinGroup = new THREE.Group();
     hoverPinGroup.visible = false;
 
-    // Luminous teal beacon sphere
+    // Luminous red beacon sphere
     const hoverSphereGeom = new THREE.SphereGeometry(0.55, 16, 16);
     hoverSphereGeom.translate(0, 3.2, 0);
-    const hoverSphereMat = new THREE.MeshBasicMaterial({ color: 0x00F0FF });
+    const hoverSphereMat = new THREE.MeshBasicMaterial({ color: 0xFF2233 });
     const hoverSphere = new THREE.Mesh(hoverSphereGeom, hoverSphereMat);
     hoverPinGroup.add(hoverSphere);
 
-    // Glowing vertical laser probe stalk
-    const hoverStalkGeom = new THREE.CylinderGeometry(0.06, 0.06, 3.2, 8);
+    // Glowing vertical red laser probe stalk
+    const hoverStalkGeom = new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8);
     hoverStalkGeom.translate(0, 1.6, 0);
-    const hoverStalkMat = new THREE.MeshBasicMaterial({ color: 0x00F0FF, transparent: true, opacity: 0.9 });
+    const hoverStalkMat = new THREE.MeshBasicMaterial({ color: 0xFF2233, transparent: true, opacity: 0.95 });
     const hoverStalk = new THREE.Mesh(hoverStalkGeom, hoverStalkMat);
     hoverPinGroup.add(hoverStalk);
 
-    // Pulsing target ground rings
+    // Red pulsing target ground rings
     const hoverRingGeom = new THREE.RingGeometry(0.4, 0.9, 24);
     hoverRingGeom.rotateX(-Math.PI / 2);
     hoverRingGeom.translate(0, 0.08, 0);
-    const hoverRingMat = new THREE.MeshBasicMaterial({ color: 0x00F0FF, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+    const hoverRingMat = new THREE.MeshBasicMaterial({ color: 0xFF2233, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
     const hoverRing = new THREE.Mesh(hoverRingGeom, hoverRingMat);
     hoverPinGroup.add(hoverRing);
 
     const hoverOuterRingGeom = new THREE.RingGeometry(1.2, 1.45, 24);
     hoverOuterRingGeom.rotateX(-Math.PI / 2);
     hoverOuterRingGeom.translate(0, 0.1, 0);
-    const hoverOuterRingMat = new THREE.MeshBasicMaterial({ color: 0x00F0FF, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
+    const hoverOuterRingMat = new THREE.MeshBasicMaterial({ color: 0xFF2233, side: THREE.DoubleSide, transparent: true, opacity: 0.75 });
     const hoverOuterRing = new THREE.Mesh(hoverOuterRingGeom, hoverOuterRingMat);
     hoverPinGroup.add(hoverOuterRing);
 
@@ -736,7 +750,76 @@ export default function MarsGaussianTerrainCanvas({
     }
   }, [showPins]);
 
-  // Raycaster & Pointer Move for Pin Probe (Hover over gaussian splat to read exact elevation)
+  // Render Custom Pinned Markers in 3D scene whenever pinnedLocations changes
+  useEffect(() => {
+    const customGroup = customPinsGroupRef.current;
+    const geomData = terrainGeometryDataRef.current;
+    if (!customGroup) return;
+
+    // Clear existing custom pins in 3D
+    while (customGroup.children.length > 0) {
+      const child = customGroup.children[0];
+      customGroup.remove(child);
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) child.material.dispose();
+    }
+
+    if (!geomData || !pinnedLocations || pinnedLocations.length === 0) return;
+
+    const { halfSpanX, halfSpanZ, spanX, spanZ, GRID_SIZE_X, GRID_SIZE_Z, heightMap, latMin, latMax, lngMin, lngMax } = geomData;
+
+    pinnedLocations.forEach((pin) => {
+      // Check if pin is within current bounding box
+      const pLat = parseFloat(pin.coords?.lat || pin.lat);
+      const pLng = parseFloat(pin.coords?.lng || pin.lng);
+      if (isNaN(pLat) || isNaN(pLng)) return;
+      if (pLat < latMin || pLat > latMax || pLng < lngMin || pLng > lngMax) return;
+
+      const uNorm = (pLng - lngMin) / (lngMax - lngMin);
+      const vNorm = (latMax - pLat) / (latMax - latMin);
+      const x = uNorm * spanX - halfSpanX;
+      const z = vNorm * spanZ - halfSpanZ;
+
+      const gridI = Math.min(GRID_SIZE_X - 1, Math.max(0, Math.floor(uNorm * (GRID_SIZE_X - 1))));
+      const gridJ = Math.min(GRID_SIZE_Z - 1, Math.max(0, Math.floor(vNorm * (GRID_SIZE_Z - 1))));
+      const y = heightMap[gridJ] ? heightMap[gridJ][gridI] : 0;
+
+      const pinGroup = new THREE.Group();
+      pinGroup.position.set(x, y, z);
+      pinGroup.userData = { pinId: pin.id, pinData: pin };
+
+      // Red Stalk
+      const stalkGeom = new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8);
+      stalkGeom.translate(0, 1.6, 0);
+      const stalkMat = new THREE.MeshBasicMaterial({ color: 0xFF2233 });
+      const stalk = new THREE.Mesh(stalkGeom, stalkMat);
+      pinGroup.add(stalk);
+
+      // Red Luminous Beacon
+      const sphereGeom = new THREE.SphereGeometry(0.65, 16, 16);
+      sphereGeom.translate(0, 3.2, 0);
+      const sphereMat = new THREE.MeshBasicMaterial({ color: 0xFF2233 });
+      const sphere = new THREE.Mesh(sphereGeom, sphereMat);
+      pinGroup.add(sphere);
+
+      // Red Ground Rings
+      const ringGeom = new THREE.RingGeometry(0.4, 0.9, 24);
+      ringGeom.rotateX(-Math.PI / 2);
+      ringGeom.translate(0, 0.08, 0);
+      const ring = new THREE.Mesh(ringGeom, new THREE.MeshBasicMaterial({ color: 0xFF2233, side: THREE.DoubleSide }));
+      pinGroup.add(ring);
+
+      const outerRingGeom = new THREE.RingGeometry(1.2, 1.45, 24);
+      outerRingGeom.rotateX(-Math.PI / 2);
+      outerRingGeom.translate(0, 0.1, 0);
+      const outerRing = new THREE.Mesh(outerRingGeom, new THREE.MeshBasicMaterial({ color: 0xFF2233, side: THREE.DoubleSide, transparent: true, opacity: 0.7 }));
+      pinGroup.add(outerRing);
+
+      customGroup.add(pinGroup);
+    });
+  }, [pinnedLocations, terrainGeometryDataRef.current]);
+
+  // Raycaster & Pointer Move for Pin Probe (Hover over gaussian splat to read exact elevation & Click to Mark Pin)
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -744,16 +827,23 @@ export default function MarsGaussianTerrainCanvas({
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    const handlePointerMove = (e) => {
-      if (!pinProbeActive) {
-        if (hoverPinGroupRef.current) hoverPinGroupRef.current.visible = false;
-        setHoverElevation(null);
-        return;
-      }
+    let pointerDownTime = 0;
+    let pointerDownPos = { x: 0, y: 0 };
+
+    const handlePointerDown = (e) => {
+      pointerDownTime = Date.now();
+      pointerDownPos = { x: e.clientX, y: e.clientY };
+    };
+
+    const handlePointerUp = (e) => {
+      // Only trigger if it's a click (not an orbit drag)
+      const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+      const elapsed = Date.now() - pointerDownTime;
+      if (dist > 5 || elapsed > 350) return; // was a drag orbit
+
+      if (!pinProbeActive) return;
 
       const rect = container.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) return;
-
       mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
@@ -763,6 +853,116 @@ export default function MarsGaussianTerrainCanvas({
       if (!camera || !mesh || !geomData) return;
 
       raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObject(mesh);
+
+      if (intersects.length > 0) {
+        const hit = intersects[0];
+        const pt = hit.point;
+
+        const { halfSpanX, halfSpanZ, spanX, spanZ, GRID_SIZE_X, GRID_SIZE_Z, cleanedMetersGrid, latMin, latMax, lngMin, lngMax } = geomData;
+        const uNorm = Math.max(0, Math.min(1, (pt.x + halfSpanX) / spanX));
+        const vNorm = Math.max(0, Math.min(1, (pt.z + halfSpanZ) / spanZ));
+
+        const gridX = uNorm * (GRID_SIZE_X - 1);
+        const gridZ = vNorm * (GRID_SIZE_Z - 1);
+        const i0 = Math.floor(gridX);
+        const i1 = Math.min(GRID_SIZE_X - 1, i0 + 1);
+        const j0 = Math.floor(gridZ);
+        const j1 = Math.min(GRID_SIZE_Z - 1, j0 + 1);
+        const fx = gridX - i0;
+        const fz = gridZ - j0;
+
+        const elev00 = cleanedMetersGrid[j0][i0];
+        const elev10 = cleanedMetersGrid[j0][i1];
+        const elev01 = cleanedMetersGrid[j1][i0];
+        const elev11 = cleanedMetersGrid[j1][i1];
+        const elevM = Math.round(
+          (1 - fx) * (1 - fz) * elev00 +
+          fx * (1 - fz) * elev10 +
+          (1 - fx) * fz * elev01 +
+          fx * fz * elev11
+        );
+
+        const lat = latMax - vNorm * (latMax - latMin);
+        const lng = lngMin + uNorm * (lngMax - lngMin);
+        const normal = hit.face ? hit.face.normal : new THREE.Vector3(0, 1, 0);
+        const slopeDeg = Math.round(Math.acos(Math.max(0, Math.min(1, normal.y))) * (180 / Math.PI));
+
+        const latStr = `${Math.abs(lat).toFixed(2)}° ${lat >= 0 ? 'N' : 'S'}`;
+        const lngStr = `${Math.abs(lng).toFixed(2)}° ${lng >= 0 ? 'E' : 'W'}`;
+
+        const newPin = {
+          id: 'pinned_probe_' + Date.now(),
+          name: `Sector Marker (${latStr}, ${lngStr})`,
+          subtitle: `Surface Probe: ${elevM > 0 ? '+' : ''}${elevM.toLocaleString()} m • ${slopeDeg}° slope`,
+          coords: {
+            lat: latStr,
+            lng: lngStr,
+            elev: `${elevM > 0 ? '+' : ''}${elevM.toLocaleString()} m`
+          },
+          coordsText: `${latStr}, ${lngStr}`,
+          elevationNum: elevM,
+          elevationVal: `${elevM > 0 ? '+' : ''}${elevM.toLocaleString()} m`,
+          slopeDeg,
+          lat,
+          lng,
+          isCustomPinned: true,
+          satelliteImg: '/assets/crater_satellite_thumb.jpg',
+          landscapeImg: '/assets/mars_expanded_terrain.jpg',
+          desc: `User mark from 3D Gaussian Splat terrain at ${latStr}, ${lngStr}. Physical elevation: ${elevM.toLocaleString()} m, local incline slope: ${slopeDeg}°.`
+        };
+
+        if (onAddPin) {
+          onAddPin(newPin);
+        }
+      }
+    };
+
+    const handlePointerMove = (e) => {
+      const rect = container.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
+      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+      const camera = cameraRef.current;
+      const mesh = terrainMeshRef.current;
+      const geomData = terrainGeometryDataRef.current;
+      const customGroup = customPinsGroupRef.current;
+      if (!camera || !mesh || !geomData) return;
+
+      raycaster.setFromCamera(mouse, camera);
+
+      // Check if hovering over any existing custom red pin
+      if (customGroup && customGroup.children.length > 0) {
+        const pinIntersects = raycaster.intersectObjects(customGroup.children, true);
+        if (pinIntersects.length > 0) {
+          // Find root pin group
+          let cur = pinIntersects[0].object;
+          while (cur && cur.parent !== customGroup) {
+            cur = cur.parent;
+          }
+          if (cur && cur.userData?.pinData) {
+            setHoveredCustomPin({
+              screenX: e.clientX - rect.left,
+              screenY: e.clientY - rect.top,
+              pin: cur.userData.pinData
+            });
+            if (hoverPinGroupRef.current) hoverPinGroupRef.current.visible = false;
+            setHoverElevation(null);
+            return;
+          }
+        }
+      }
+
+      setHoveredCustomPin(null);
+
+      if (!pinProbeActive) {
+        if (hoverPinGroupRef.current) hoverPinGroupRef.current.visible = false;
+        setHoverElevation(null);
+        return;
+      }
+
       const intersects = raycaster.intersectObject(mesh);
 
       if (intersects.length > 0) {
@@ -824,16 +1024,21 @@ export default function MarsGaussianTerrainCanvas({
     const handlePointerLeave = () => {
       if (hoverPinGroupRef.current) hoverPinGroupRef.current.visible = false;
       setHoverElevation(null);
+      setHoveredCustomPin(null);
     };
 
+    container.addEventListener('pointerdown', handlePointerDown);
+    container.addEventListener('pointerup', handlePointerUp);
     container.addEventListener('pointermove', handlePointerMove);
     container.addEventListener('pointerleave', handlePointerLeave);
 
     return () => {
+      container.removeEventListener('pointerdown', handlePointerDown);
+      container.removeEventListener('pointerup', handlePointerUp);
       container.removeEventListener('pointermove', handlePointerMove);
       container.removeEventListener('pointerleave', handlePointerLeave);
     };
-  }, [pinProbeActive]);
+  }, [pinProbeActive, onAddPin]);
 
   // 2. Build 3D Gaussian Splats & NASA Elevation Mesh with Anti-Spike Protection
   useEffect(() => {
@@ -1486,17 +1691,17 @@ export default function MarsGaussianTerrainCanvas({
           </button>
         </div>
 
-        {/* Pin Probe Elevation Hover Tooltip */}
-        {hoverElevation && (
+        {/* Pin Probe Elevation Hover Tooltip (Red Theme with Click to Mark hint) */}
+        {hoverElevation && !hoveredCustomPin && (
           <div
             className="terrain-elevation-probe-tooltip"
             style={{
-              left: Math.max(16, Math.min((containerRef.current?.clientWidth || 600) - 180, hoverElevation.screenX + 16)),
-              top: Math.max(16, hoverElevation.screenY - 80)
+              left: Math.max(16, Math.min((containerRef.current?.clientWidth || 600) - 190, hoverElevation.screenX + 16)),
+              top: Math.max(16, hoverElevation.screenY - 90)
             }}
           >
             <div className="probe-tooltip-header">
-              <MapPin size={11} className="text-cyan" />
+              <MapPin size={11} className="text-red" />
               <span className="probe-title">SURFACE PROBE</span>
               <span className="probe-slope-badge">{hoverElevation.slopeDeg}° slope</span>
             </div>
@@ -1508,12 +1713,72 @@ export default function MarsGaussianTerrainCanvas({
                 {hoverElevation.lat.toFixed(2)}°N, {hoverElevation.lng.toFixed(2)}°E
               </span>
             </div>
+            <div className="probe-click-hint">
+              <Plus size={10} />
+              <span>Click to Mark Location</span>
+            </div>
+          </div>
+        )}
+
+        {/* Existing Custom Marked Pin Hover Card with [X] Remove & [Map] Navigate */}
+        {hoveredCustomPin && (
+          <div
+            className="terrain-elevation-probe-tooltip marked-pin-hover-card"
+            style={{
+              left: Math.max(16, Math.min((containerRef.current?.clientWidth || 600) - 230, hoveredCustomPin.screenX + 16)),
+              top: Math.max(16, hoveredCustomPin.screenY - 110),
+              pointerEvents: 'auto'
+            }}
+          >
+            <div className="probe-tooltip-header">
+              <div className="marked-header-left">
+                <div className="red-pin-pulse-dot" />
+                <span className="probe-title red-accent">MARKED PIN</span>
+              </div>
+              {onRemovePin && (
+                <button
+                  className="pin-remove-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemovePin(hoveredCustomPin.pin.id);
+                    setHoveredCustomPin(null);
+                  }}
+                  title="Remove Pin"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+
+            <div className="probe-tooltip-body">
+              <span className="probe-marker-name">{hoveredCustomPin.pin.name}</span>
+              <span className="probe-elev-val red-text">
+                {hoveredCustomPin.pin.elevationVal || `${hoveredCustomPin.pin.elevationNum} m`}
+              </span>
+              <span className="probe-coords">
+                {hoveredCustomPin.pin.coordsText}
+              </span>
+            </div>
+
+            {onNavigateToMap && (
+              <button
+                className="probe-navigate-map-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigateToMap(hoveredCustomPin.pin);
+                }}
+                title="View on Satellite Map in Home Page"
+              >
+                <ExternalLink size={11} />
+                <span>View on Satellite Map</span>
+              </button>
+            )}
           </div>
         )}
 
         {/* Interaction Hint Overlay */}
         <div className="terrain-interaction-hint">
-          <span>{pinProbeActive ? 'Hover on Gaussian splat to probe elevation • ' : ''}Left-Click Drag: Orbit • Right-Click Drag: Pan • Scroll: Zoom</span>
+          <span>{pinProbeActive ? 'Click to Mark Pin • Hover on Pin for [X] or [Map] • ' : ''}Left-Click Drag: Orbit • Right-Click Drag: Pan • Scroll: Zoom</span>
         </div>
       </div>
 

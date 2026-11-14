@@ -91,7 +91,8 @@ export const NASA_PRESET_REGIONS = [
 export default function MarsAreaBoundingBoxSelector({
   activeBoundingBox,
   onSelectBoundingBox,
-  onGenerateGaussianSplat
+  onGenerateGaussianSplat,
+  pinnedLocations = []
 }) {
   const mapContainerRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -306,6 +307,25 @@ export default function MarsAreaBoundingBoxSelector({
             >
               <div className="marker-dot" />
               <span className="marker-tag">{preset.name.split(' (')[0]}</span>
+            </div>
+          );
+        })}
+
+        {/* Render User Pinned Red Markers on Map */}
+        {pinnedLocations && pinnedLocations.map((pin) => {
+          const pLat = parseFloat(pin.coords?.lat || pin.lat);
+          const pLng = parseFloat(pin.coords?.lng || pin.lng);
+          if (isNaN(pLat) || isNaN(pLng)) return null;
+          const pt = geoToNorm(pLat, pLng);
+          return (
+            <div
+              key={pin.id}
+              className="bbox-landmark-marker bbox-custom-red-pin"
+              style={{ left: `${pt.nx * 100}%`, top: `${pt.ny * 100}%` }}
+              title={`${pin.name} (${pin.elevationVal || ''})`}
+            >
+              <div className="custom-red-marker-dot" />
+              <span className="marker-tag custom-red-tag">{pin.name.split(' (')[0]}</span>
             </div>
           );
         })}

@@ -57,6 +57,36 @@ export default function App() {
   // Default location: Proposed Base Site
   const [selectedLocation, setSelectedLocation] = useState(MARS_LOCATIONS.proposed_base);
 
+  // Custom pinned exploration sites created from 3D Gaussian Splats
+  const [pinnedLocations, setPinnedLocations] = useState(() => {
+    try {
+      const saved = localStorage.getItem('red_atlas_pinned_locations');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const handleAddPinnedLocation = (newPin) => {
+    setPinnedLocations((prev) => {
+      const updated = [newPin, ...prev.filter((p) => p.id !== newPin.id)];
+      try {
+        localStorage.setItem('red_atlas_pinned_locations', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  const handleRemovePinnedLocation = (pinId) => {
+    setPinnedLocations((prev) => {
+      const updated = prev.filter((p) => p.id !== pinId);
+      try {
+        localStorage.setItem('red_atlas_pinned_locations', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
   const handleSelectLocation = (loc) => {
     if (!loc) return;
     let fullLoc;
@@ -171,6 +201,15 @@ export default function App() {
               onOpenHUD={() => setIsSimOpen(true)}
               isExpanded={isMapExpanded}
               onToggleExpand={setIsMapExpanded}
+              pinnedLocations={pinnedLocations}
+              onAddPin={handleAddPinnedLocation}
+              onRemovePin={handleRemovePinnedLocation}
+              onNavigateToMap={(loc) => {
+                handleSelectLocation(loc);
+                setActiveSection('Overview');
+                setActiveNav('Map');
+                setIsMapExpanded(false);
+              }}
             />
           </div>
         );
@@ -186,6 +225,8 @@ export default function App() {
             onToggleExpand={setIsMapExpanded}
             activeMission={activeMission}
             onOpenMissions={() => setIsMissionsOpen(true)}
+            pinnedLocations={pinnedLocations}
+            onRemovePin={handleRemovePinnedLocation}
           />
         );
     }

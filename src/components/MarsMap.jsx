@@ -113,7 +113,9 @@ export default function MarsMap({
   isExpanded = false,
   onToggleExpand,
   activeMission,
-  onOpenMissions
+  onOpenMissions,
+  pinnedLocations = [],
+  onRemovePin
 }) {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -698,6 +700,8 @@ export default function MarsMap({
             onViewportChange={(vp) => setMapViewportState(vp)}
             activeWaypoints={activeWaypoints}
             isExpanded={isExpanded}
+            pinnedLocations={pinnedLocations}
+            onRemovePin={onRemovePin}
           />
         )}
       </div>
