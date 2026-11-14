@@ -4532,6 +4532,298 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* --------------------------------------------------------------------------
+   3D GAUSSIAN SPLATTING & NASA ELEVATION TERRAIN ENGINE
+   -------------------------------------------------------------------------- */
+.terrain-mode-pills-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  padding: 4px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-card);
+}
+
+.t-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.t-mode-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.t-mode-btn.active {
+  background: var(--accent-mars);
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px var(--accent-mars-glow);
+}
+
+.terrain-3d-interactive-wrap {
+  position: relative;
+  width: 100%;
+  height: 380px;
+  min-height: 320px;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  background: #09080A;
+  border: 1px solid var(--border-card);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.terrain-3d-interactive-wrap.expanded-canvas {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  border-radius: 0 !important;
+  z-index: 1200 !important;
+  border: none !important;
+}
+
+.terrain-webgl-canvas {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+.terrain-webgl-canvas:active {
+  cursor: grabbing;
+}
+
+.terrain-overlay-hud-topleft {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.thud-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(14, 11, 10, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #FFFFFF;
+  font-family: var(--font-mono);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.thud-metric-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(18, 14, 12, 0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  font-size: 10px;
+  width: fit-content;
+}
+
+.thud-lbl {
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+
+.thud-val {
+  color: var(--text-primary);
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.terrain-overlay-hud-topright {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 10;
+}
+
+.t-camera-presets-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(18, 14, 12, 0.85);
+  backdrop-filter: blur(10px);
+  padding: 3px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.preset-btn {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-btn:hover {
+  color: #FFFFFF;
+}
+
+.preset-btn.active {
+  background: rgba(255, 255, 255, 0.15);
+  color: #FFFFFF;
+}
+
+.t-hud-action-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(18, 14, 12, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.t-hud-action-btn:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.t-hud-action-btn.active {
+  color: var(--accent-mars);
+  border-color: var(--accent-mars);
+}
+
+.terrain-bottom-controls-strip {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.terrain-bottom-controls-strip > * {
+  pointer-events: auto;
+}
+
+.t-slider-ctrl-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(18, 14, 12, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.t-exaggeration-slider {
+  width: 75px;
+  height: 4px;
+  accent-color: var(--accent-mars);
+  cursor: pointer;
+}
+
+.t-ctrl-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(18, 14, 12, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.t-ctrl-pill-btn:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.t-ctrl-pill-btn.active {
+  background: var(--accent-mars);
+  color: #FFFFFF;
+  border-color: var(--accent-mars);
+}
+
+.t-ctrl-pill-btn.hud-accent {
+  background: rgba(216, 77, 41, 0.85);
+  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.t-ctrl-pill-btn.hud-accent:hover {
+  background: var(--accent-mars-hover);
+}
+
+.terrain-interaction-hint {
+  position: absolute;
+  bottom: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 9.5px;
+  color: rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+  letter-spacing: 0.02em;
+}
+
+.spin-slow {
+  animation: spinSlow 8s linear infinite;
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .terrain-footer-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
