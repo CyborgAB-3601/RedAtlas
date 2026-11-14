@@ -89,7 +89,29 @@ export default function App() {
 
   const isLocationInRoute = (locId) => {
     if (!locId) return false;
+    if (activeMission && (
+      activeMission.targetLocationId === locId ||
+      (activeMission.id === 'gale_boxwork' && locId === 'gale') ||
+      (activeMission.id === 'jezero_sample' && locId === 'jezero') ||
+      (activeMission.id === 'olympus_shelter' && locId === 'olympus')
+    )) {
+      return true;
+    }
     return routeObjectives.some((o) => o.id === locId);
+  };
+
+  const handleRemoveFromRoute = (loc) => {
+    const targetId = loc?.id || selectedLocation?.id;
+    if (!targetId) return;
+    setRouteObjectives((prev) => prev.filter((o) => o.id !== targetId));
+    if (activeMission && (
+      activeMission.targetLocationId === targetId ||
+      (activeMission.id === 'gale_boxwork' && targetId === 'gale') ||
+      (activeMission.id === 'jezero_sample' && targetId === 'jezero') ||
+      (activeMission.id === 'olympus_shelter' && targetId === 'olympus')
+    )) {
+      setActiveMission(null);
+    }
   };
 
   const handleSelectLocation = (loc) => {
@@ -283,15 +305,24 @@ export default function App() {
             <DetailPanel
               locationData={selectedLocation}
               activeMission={activeMission}
+              routeObjectives={routeObjectives}
               onPlayVideo={() => setIsSimOpen(true)}
               onAddToRoute={() => handleToggleAddToRoute(selectedLocation)}
-              onRemoveFromRoute={(loc) => handleToggleAddToRoute(loc || selectedLocation)}
+              onRemoveFromRoute={handleRemoveFromRoute}
               isAddedToRoute={isLocationInRoute(selectedLocation?.id)}
               onUnmark={(loc) => {
                 const targetId = loc?.id || selectedLocation?.id;
                 if (targetId) {
                   handleRemovePinnedLocation(targetId);
                   setRouteObjectives((prev) => prev.filter((o) => o.id !== targetId));
+                  if (activeMission && (
+                    activeMission.targetLocationId === targetId ||
+                    (activeMission.id === 'gale_boxwork' && targetId === 'gale') ||
+                    (activeMission.id === 'jezero_sample' && targetId === 'jezero') ||
+                    (activeMission.id === 'olympus_shelter' && targetId === 'olympus')
+                  )) {
+                    setActiveMission(null);
+                  }
                 }
                 setSelectedLocation(null);
                 setActiveSatellitePin(null);

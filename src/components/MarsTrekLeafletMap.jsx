@@ -333,21 +333,17 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
           return;
         }
 
+        // Clicking any landmark (including active mission target) opens the side overview
         if (onSelectLocation) {
           onSelectLocation(loc);
-        }
-
-        // Clicking the mission objective pin takes user to the Missions page showing status
-        if (isMissionObjective && onOpenMissions) {
-          onOpenMissions();
         }
       });
 
       markersGroup.addLayer(marker);
     });
 
-    // 2. RENDER MISSION ROUTE FROM BASE TO OBJECTIVE (ONLY WHEN A MISSION IS ACTIVE)
-    if (activeMission) {
+    // 2. RENDER MISSION ROUTE FROM BASE TO OBJECTIVE (WHEN A MISSION OR ROUTE PATH IS ACTIVE)
+    if (activeMission || (routeObjectives && routeObjectives.length > 0)) {
       const smartRoute = getSmartMissionRoute(activeMission, routeObjectives);
       if (smartRoute && smartRoute.polylineCoords.length >= 2) {
         // Deep contrast path shadow

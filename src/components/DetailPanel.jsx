@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Play,
   Droplet,
@@ -12,14 +12,48 @@ import {
   CheckCircle2,
   Activity,
   Camera,
-  ExternalLink
+  ExternalLink,
+  Route,
+  Navigation,
+  Footprints,
+  Truck,
+  Compass
 } from 'lucide-react';
 import NasaImageGalleryModal from './NasaImageGalleryModal';
 import { getFallbackLandscape, getFallbackSatellite } from '../services/nasaPlaceService';
+import { MARS_LOCATIONS, getLocationById, parseLatLng } from '../data/marsLocations';
+
+function getMarsTraverseDistanceKm(lat1, lng1, lat2, lng2) {
+  const R = 3389.5; // Mars mean radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  // 1.18x factor for NASA MOLA topographic low-slope contour routing
+  return Math.round(R * c * 1.18);
+}
+
+function formatTraverseTime(hours, hoursPerSol) {
+  if (hours < 1) {
+    return `${Math.max(1, Math.round(hours * 60))} min`;
+  }
+  if (hours <= 24) {
+    const sols = (hours / hoursPerSol).toFixed(1);
+    return `${hours.toFixed(1)} hrs (${sols} Sols)`;
+  }
+  const sols = (hours / hoursPerSol).toFixed(1);
+  return `${sols} Sols (${Math.round(hours)} hrs)`;
+}
 
 export default function DetailPanel({
   locationData,
   activeMission,
+  routeObjectives = [],
   onPlayVideo,
   onAddToRoute,
   onRemoveFromRoute,
@@ -29,6 +63,7 @@ export default function DetailPanel({
   const [activeTab, setActiveTab] = useState('Overview');
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isMarkedReached, setIsMarkedReached] = useState(false);
   const moreMenuRef = useRef(null);
 
   useEffect(() => {
@@ -76,6 +111,108 @@ export default function DetailPanel({
       }
     ]
   };
+
+  useEffect(() => {
+    setIsMarkedReached(false);
+  }, [activeLoc.id]);
+
+  // Base site coordinates (Chryse Planitia)
+  const [bLat, bLng] = parseLatLng(
+    MARS_LOCATIONS.proposed_base.coords.lat,
+    MARS_LOCATIONS.proposed_base.coords.lng
+  );
+
+  // Build the complete list of ordered waypoints along the active path
+  const allPathPoints = useMemo(() => {
+    const points = [{ ...MARS_LOCATIONS.proposed_base, lat: bLat, lng: bLng }];
+
+    // Add primary mission objective if mission is active
+    if (activeMission) {
+      const objLoc = getLocationById(activeMission.targetLocationId || activeMission.id) || MARS_LOCATIONS.gale;
+      if (objLoc?.coords) {
+        const [oLat, oLng] = parseLatLng(objLoc.coords.lat, objLoc.coords.lng);
+        points.push({ ...objLoc, lat: oLat, lng: oLng });
+      }
+    }
+
+    // Add dynamically added secondary route objectives
+    (routeObjectives || []).forEach((obj) => {
+      let lat = obj.lat;
+      let lng = obj.lng;
+      if (typeof lat !== 'number' || typeof lng !== 'number') {
+        if (obj.coords) {
+          [lat, lng] = parseLatLng(obj.coords.lat, obj.coords.lng);
+        }
+      }
+      if (typeof lat === 'number' && typeof lng === 'number') {
+        if (!points.some((p) => p.id === obj.id)) {
+          points.push({ ...obj, lat, lng });
+        }
+      }
+    });
+
+    return points;
+  }, [activeMission, routeObjectives, bLat, bLng]);
+
+  // Is there any active path currently?
+  const hasActivePath = Boolean(activeMission || (routeObjectives && routeObjectives.length > 0));
+
+  // Is this specific place part of the active path?
+  const isInPath = isAddedToRoute || allPathPoints.some((p) => p.id === activeLoc.id);
+
+  // Compute total expedition distance across all stages
+  const totalExpeditionKm = useMemo(() => {
+    if (allPathPoints.length < 2) return 0;
+    let dist = 0;
+    for (let i = 0; i < allPathPoints.length - 1; i++) {
+      dist += getMarsTraverseDistanceKm(
+        allPathPoints[i].lat,
+        allPathPoints[i].lng,
+        allPathPoints[i + 1].lat,
+        allPathPoints[i + 1].lng
+      );
+    }
+    return dist;
+  }, [allPathPoints]);
+
+  // Compute distance from start base to active location along the path
+  const { distFromBaseKm, walkTimeStr, roverTimeStr } = useMemo(() => {
+    let targetLat = bLat;
+    let targetLng = bLng;
+    if (activeLoc.coords) {
+      [targetLat, targetLng] = parseLatLng(activeLoc.coords.lat, activeLoc.coords.lng);
+    }
+
+    // If active location is in the path, calculate cumulative path distance to it
+    const activeIdx = allPathPoints.findIndex((p) => p.id === activeLoc.id);
+    let distKm = 0;
+    if (activeIdx > 0) {
+      for (let i = 0; i < activeIdx; i++) {
+        distKm += getMarsTraverseDistanceKm(
+          allPathPoints[i].lat,
+          allPathPoints[i].lng,
+          allPathPoints[i + 1].lat,
+          allPathPoints[i + 1].lng
+        );
+      }
+    } else {
+      distKm = getMarsTraverseDistanceKm(bLat, bLng, targetLat, targetLng);
+    }
+
+    // Astronaut EVA Walk: 3.8 km/h, 8h/Sol limit
+    const walkHours = distKm / 3.8;
+    const walkStr = formatTraverseTime(walkHours, 8);
+
+    // Pressurized Rover: 14 km/h, 10h/Sol limit
+    const roverHours = distKm / 14;
+    const roverStr = formatTraverseTime(roverHours, 10);
+
+    return {
+      distFromBaseKm: distKm,
+      walkTimeStr: walkStr,
+      roverTimeStr: roverStr
+    };
+  }, [activeLoc, allPathPoints, bLat, bLng]);
 
   const tabs = ['Overview', 'Terrain', 'Resources', 'Hazards'];
 
@@ -195,6 +332,58 @@ export default function DetailPanel({
                 </div>
               </div>
             </div>
+
+            {/* Expedition Traverse Distance & Travel Time (Displayed when paths/routes are selected) */}
+            {hasActivePath && (
+              <div className="key-insights-section expedition-traverse-metrics">
+                <h4 className="insights-header-title">Expedition Traverse & Travel Time</h4>
+                <div className="insights-quad-grid">
+                  <div className="insight-tile">
+                    <div className="insight-icon-circle">
+                      <Route size={16} strokeWidth={1.8} style={{ color: '#FF7043' }} />
+                    </div>
+                    <div className="insight-text-group">
+                      <span className="insight-title">{totalExpeditionKm.toLocaleString()} km Total</span>
+                      <span className="insight-description">
+                        {allPathPoints.length <= 2
+                          ? 'Start base to target'
+                          : `${allPathPoints.length - 1} waypoint stages`}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="insight-tile">
+                    <div className="insight-icon-circle">
+                      <Navigation size={16} strokeWidth={1.8} style={{ color: '#00E5FF' }} />
+                    </div>
+                    <div className="insight-text-group">
+                      <span className="insight-title">{distFromBaseKm.toLocaleString()} km</span>
+                      <span className="insight-description">From Chryse Base Alpha</span>
+                    </div>
+                  </div>
+
+                  <div className="insight-tile">
+                    <div className="insight-icon-circle">
+                      <Footprints size={16} strokeWidth={1.8} style={{ color: '#FFB74D' }} />
+                    </div>
+                    <div className="insight-text-group">
+                      <span className="insight-title">{walkTimeStr}</span>
+                      <span className="insight-description">Astronaut Walk (3.8 km/h)</span>
+                    </div>
+                  </div>
+
+                  <div className="insight-tile">
+                    <div className="insight-icon-circle">
+                      <Truck size={16} strokeWidth={1.8} style={{ color: '#10B981' }} />
+                    </div>
+                    <div className="insight-text-group">
+                      <span className="insight-title">{roverTimeStr}</span>
+                      <span className="insight-description">Pressurized Rover (14 km/h)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Key Insights Section */}
             <div className="key-insights-section">
@@ -332,14 +521,20 @@ export default function DetailPanel({
         {/* Action Button Strip */}
         <div className="detail-action-strip">
           <button
-            className={`add-to-route-btn ${isAddedToRoute ? 'added' : ''}`}
-            onClick={onAddToRoute}
-            title={isAddedToRoute ? 'Place added to expedition route' : 'Add to expedition route'}
+            className={`add-to-route-btn ${isInPath ? 'added' : ''}`}
+            onClick={() => {
+              if (isInPath) {
+                setIsMarkedReached((prev) => !prev);
+              } else {
+                onAddToRoute();
+              }
+            }}
+            title={isInPath ? (isMarkedReached ? 'Place marked reached' : 'Mark location reached') : 'Add to expedition route'}
           >
-            {isAddedToRoute ? (
+            {isInPath ? (
               <>
                 <CheckCircle2 size={16} />
-                <span>Place Reached</span>
+                <span>{isMarkedReached ? 'Place Reached' : 'Mark Reached'}</span>
               </>
             ) : (
               <>
@@ -361,15 +556,13 @@ export default function DetailPanel({
 
             {isMoreMenuOpen && (
               <div className="more-options-dropdown animate-fade-in">
-                {isAddedToRoute && (
+                {isInPath && (
                   <button
                     className="more-dropdown-item remove-route-item"
                     onClick={() => {
                       setIsMoreMenuOpen(false);
                       if (onRemoveFromRoute) {
                         onRemoveFromRoute(activeLoc);
-                      } else if (onAddToRoute) {
-                        onAddToRoute(activeLoc);
                       }
                     }}
                     title="Remove from Route"
@@ -388,12 +581,12 @@ export default function DetailPanel({
                     setIsMoreMenuOpen(false);
                     if (onUnmark) onUnmark(activeLoc);
                   }}
-                  title="Unmark location"
+                  title="Unmark location & remove path"
                 >
                   <MapPinOff size={15} className="unmark-icon" />
                   <div className="unmark-item-text">
                     <span className="unmark-title">Unmark Location</span>
-                    <span className="unmark-desc">Clear marker & selection</span>
+                    <span className="unmark-desc">Clear marker & remove path</span>
                   </div>
                 </button>
               </div>
