@@ -466,8 +466,14 @@ export default function MarsGaussianTerrainCanvas({
   const molaImageCanvasRef = useRef(null);
   const satImageCanvasRef = useRef(null);
 
-  // Active state
-  const [renderMode, setRenderMode] = useState('splats'); // 'splats' | 'textured' | 'elevation' | 'slope'
+  const [localPinnedLocations, setLocalPinnedLocations] = useState([]);
+
+  // Sync with prop if provided
+  useEffect(() => {
+    if (pinnedLocations && pinnedLocations.length > 0) {
+      setLocalPinnedLocations(pinnedLocations);
+    }
+  }, [pinnedLocations]);
   const [elevationExaggeration, setElevationExaggeration] = useState(1.6);
   const [showContours, setShowContours] = useState(true);
   const [showPins, setShowPins] = useState(true);
@@ -750,7 +756,7 @@ export default function MarsGaussianTerrainCanvas({
     }
   }, [showPins]);
 
-  // Render Custom Pinned Markers in 3D scene whenever pinnedLocations changes
+  // Render Custom Pinned Markers in 3D scene whenever localPinnedLocations changes
   useEffect(() => {
     const customGroup = customPinsGroupRef.current;
     const geomData = terrainGeometryDataRef.current;
@@ -764,19 +770,26 @@ export default function MarsGaussianTerrainCanvas({
       if (child.material) child.material.dispose();
     }
 
-    if (!geomData || !pinnedLocations || pinnedLocations.length === 0) return;
+    if (!geomData || !localPinnedLocations || localPinnedLocations.length === 0) return;
 
     const { halfSpanX, halfSpanZ, spanX, spanZ, GRID_SIZE_X, GRID_SIZE_Z, heightMap, latMin, latMax, lngMin, lngMax } = geomData;
 
-    pinnedLocations.forEach((pin) => {
-      // Check if pin is within current bounding box
-      const pLat = parseFloat(pin.coords?.lat || pin.lat);
-      const pLng = parseFloat(pin.coords?.lng || pin.lng);
-      if (isNaN(pLat) || isNaN(pLng)) return;
-      if (pLat < latMin || pLat > latMax || pLng < lngMin || pLng > lngMax) return;
+    localPinnedLocations.forEach((pin) => {
+      // Numerical latitude and longitude
+      let pLat = typeof pin.lat === 'number' ? pin.lat : parseFloat(pin.lat);
+      let pLng = typeof pin.lng === 'number' ? pin.lng : parseFloat(pin.lng);
 
-      const uNorm = (pLng - lngMin) / (lngMax - lngMin);
-      const vNorm = (latMax - pLat) / (latMax - latMin);
+      if (isNaN(pLat) && pin.coords?.lat) {
+        pLat = parseFloat(pin.coords.lat) * (pin.coords.lat.includes('S') ? -1 : 1);
+      }
+      if (isNaN(pLng) && pin.coords?.lng) {
+        pLng = parseFloat(pin.coords.lng) * (pin.coords.lng.includes('W') ? -1 : 1);
+      }
+
+      if (isNaN(pLat) || isNaN(pLng)) return;
+
+      const uNorm = Math.max(0, Math.min(1, (pLng - lngMin) / (lngMax - lngMin)));
+      const vNorm = Math.max(0, Math.min(1, (latMax - pLat) / (latMax - latMin)));
       const x = uNorm * spanX - halfSpanX;
       const z = vNorm * spanZ - halfSpanZ;
 
@@ -817,7 +830,7 @@ export default function MarsGaussianTerrainCanvas({
 
       customGroup.add(pinGroup);
     });
-  }, [pinnedLocations, terrainGeometryDataRef.current]);
+  }, [localPinnedLocations, terrainGeometryDataRef.current]);
 
   // Raycaster & Pointer Move for Pin Probe (Hover over gaussian splat to read exact elevation & Click to Mark Pin)
   useEffect(() => {
@@ -914,6 +927,9 @@ export default function MarsGaussianTerrainCanvas({
           landscapeImg: '/assets/mars_expanded_terrain.jpg',
           desc: `User mark from 3D Gaussian Splat terrain at ${latStr}, ${lngStr}. Physical elevation: ${elevM.toLocaleString()} m, local incline slope: ${slopeDeg}°.`
         };
+
+        // Update local state immediately so pin renders on 3D Gaussian Splat with zero delay
+        setLocalPinnedLocations((prev) => [newPin, ...prev.filter((p) => p.id !== newPin.id)]);
 
         if (onAddPin) {
           onAddPin(newPin);
@@ -1743,19 +1759,19 @@ export default function MarsGaussianTerrainCanvas({
                 <div className="red-pin-pulse-dot" />
                 <span className="probe-title red-accent">MARKED PIN</span>
               </div>
-              {onRemovePin && (
-                <button
-                  className="pin-remove-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemovePin(hoveredCustomPin.pin.id);
-                    setHoveredCustomPin(null);
-                  }}
-                  title="Remove Pin"
-                >
-                  <X size={12} />
-                </button>
-              )}
+              <button
+                className="pin-remove-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const targetId = hoveredCustomPin.pin.id;
+                  setLocalPinnedLocations((prev) => prev.filter((p) => p.id !== targetId));
+                  if (onRemovePin) onRemovePin(targetId);
+                  setHoveredCustomPin(null);
+                }}
+                title="Remove Pin"
+              >
+                <X size={12} />
+              </button>
             </div>
 
             <div className="probe-tooltip-body">
