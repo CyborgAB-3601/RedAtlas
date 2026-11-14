@@ -99,9 +99,13 @@ export default function KeyLocations({ onSelectLocation, selectedLocationId }) {
             >
               <div className="location-card-image-wrap">
                 <img
-                  src={loc.img}
+                  src={loc.img || '/assets/mars_base_site.jpg'}
                   alt={loc.name}
                   className="location-card-img"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = '/assets/mars_base_site.jpg';
+                  }}
                 />
               </div>
 

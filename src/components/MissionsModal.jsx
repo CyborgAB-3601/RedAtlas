@@ -80,7 +80,15 @@ export default function MissionsModal({
                     onClick={() => handleSelectCard(mission)}
                   >
                     <div className="mission-card-media">
-                      <img src={loc.landscapeImg} alt={mission.name} className="mission-img" />
+                      <img
+                        src={loc.landscapeImg || '/assets/mars_base_site.jpg'}
+                        alt={mission.name}
+                        className="mission-img"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = '/assets/mars_base_site.jpg';
+                        }}
+                      />
                       <span className="mission-badge-chip">{mission.badge}</span>
                       <span className="mission-sol-chip">{mission.sol}</span>
                     </div>
@@ -145,9 +153,13 @@ export default function MissionsModal({
             {/* Hero Landscape Card with Targeting Reticle */}
             <div className="briefing-hero-card">
               <img
-                src={getLocationById(inspectedMission.targetLocationId).landscapeImg}
+                src={getLocationById(inspectedMission.targetLocationId).landscapeImg || '/assets/mars_base_site.jpg'}
                 alt={inspectedMission.name}
                 className="briefing-hero-img"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = '/assets/mars_base_site.jpg';
+                }}
               />
               <div className="briefing-hero-scrim" />
 

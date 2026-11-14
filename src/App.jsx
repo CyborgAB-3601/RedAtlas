@@ -19,6 +19,7 @@ import {
   NASA_MISSIONS,
   getLocationById
 } from './data/marsLocations';
+import { enrichLocationWithOfficialData } from './services/nasaPlaceService';
 
 export default function App() {
   const [activeNav, setActiveNav] = useState('Map');
@@ -58,10 +59,25 @@ export default function App() {
 
   const handleSelectLocation = (loc) => {
     if (!loc) return;
-    const locId = typeof loc === 'string' ? loc : loc.id;
-    const fullLoc = getLocationById(locId);
+    let fullLoc;
+    if (typeof loc === 'string') {
+      fullLoc = getLocationById(loc);
+    } else if (loc.id && MARS_LOCATIONS[loc.id]) {
+      fullLoc = MARS_LOCATIONS[loc.id];
+    } else {
+      fullLoc = loc;
+    }
     setSelectedLocation(fullLoc);
     setIsAddedToRoute(false);
+    setActiveNav('Map');
+    setActiveSection('Overview');
+
+    // Automatically fetch real official NASA / USGS images & data for the selected place
+    enrichLocationWithOfficialData(fullLoc).then((enriched) => {
+      if (enriched && enriched.id === fullLoc.id) {
+        setSelectedLocation((prev) => (prev?.id === fullLoc.id ? { ...prev, ...enriched } : prev));
+      }
+    });
   };
 
   const handleSelectMission = (mission) => {

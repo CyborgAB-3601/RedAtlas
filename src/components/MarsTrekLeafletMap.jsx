@@ -173,9 +173,15 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
     markersGroup.clearLayers();
     routeGroup.clearLayers();
 
-    const locationsToRender = (activeWaypoints && activeWaypoints.length > 0)
+    const baseLocations = (activeWaypoints && activeWaypoints.length > 0)
       ? activeWaypoints.map((wp) => MARS_LOCATIONS[wp.id] || wp).filter(Boolean)
       : Object.values(MARS_LOCATIONS);
+
+    // Ensure selected location (including from search) is always rendered and visible on map
+    const locationsToRender = [...baseLocations];
+    if (selectedLocation?.id && !locationsToRender.some((l) => l.id === selectedLocation.id)) {
+      locationsToRender.push(selectedLocation);
+    }
 
     const routeCoords = [];
 
@@ -264,6 +270,19 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
       routeGroup.addLayer(routeLine);
     }
   }, [activeWaypoints, selectedLocation?.id, onSelectLocation]);
+
+  // 5. Smoothly fly to selected location on map when selectedLocation changes (from search or clicks)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !selectedLocation?.coords?.lat || !selectedLocation?.coords?.lng) return;
+
+    const [lat, lng] = parseLatLng(selectedLocation.coords.lat, selectedLocation.coords.lng);
+    const targetZoom = Math.min(map.getMaxZoom(), Math.max(map.getZoom(), 4));
+    map.flyTo([lat, lng], targetZoom, {
+      duration: 1.5,
+      easeLinearity: 0.25
+    });
+  }, [selectedLocation?.id, selectedLocation?.coords?.lat, selectedLocation?.coords?.lng]);
 
   return (
     <div

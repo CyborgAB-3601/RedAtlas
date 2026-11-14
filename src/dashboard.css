@@ -779,15 +779,21 @@
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
-/* Map Top-Left Overlay */
+/* Map Top-Left Overlay - placed at top (22px) by default, and automatically pushed down (68px) if touching the 3D Satellite bubble */
 .map-top-left-overlay {
   position: absolute;
-  top: 24px;
+  top: 22px;
   left: 28px;
+  max-width: 540px;
   z-index: 30;
   display: flex;
   flex-direction: column;
   pointer-events: none;
+  transition: top 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.map-top-left-overlay.pushed-down {
+  top: 68px;
 }
 
 .map-index-badge {
@@ -799,21 +805,23 @@
 }
 
 .map-main-title {
-  font-size: 48px;
+  font-size: 34px;
   font-weight: 400;
   color: #FFFFFF;
   letter-spacing: -0.02em;
-  line-height: 1.05;
-  margin-bottom: 12px;
+  line-height: 1.12;
+  margin-bottom: 6px;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.75);
 }
 
 .map-description {
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 600;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   color: rgba(255, 255, 255, 0.75);
-  line-height: 1.6;
-  max-width: 220px;
+  line-height: 1.5;
+  max-width: 380px;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8);
 }
 
 /* Map Top-Right Mode Switcher */
@@ -1149,6 +1157,70 @@
   align-items: center;
   justify-content: center;
   transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.preview-nasa-photos-pill {
+  position: absolute;
+  top: 9px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(14, 16, 20, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(10px);
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 600;
+  color: #FFFFFF;
+  letter-spacing: 0.03em;
+  transition: all 0.2s ease;
+  z-index: 5;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.preview-nasa-photos-pill:hover {
+  background: #FF5E3A;
+  border-color: #FF5E3A;
+  box-shadow: 0 2px 12px rgba(255, 94, 58, 0.5);
+}
+
+.official-photos-trigger-card {
+  margin-top: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.official-photos-trigger-card:hover {
+  background: rgba(255, 94, 58, 0.10);
+  border-color: rgba(255, 94, 58, 0.40);
+  transform: translateY(-1px);
+}
+
+.opt-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.opt-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: #FF5E3A;
+  font-weight: 500;
 }
 
 .preview-media-card:hover .preview-play-btn {

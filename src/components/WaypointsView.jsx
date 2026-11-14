@@ -87,7 +87,15 @@ export default function WaypointsView({
               }}
             >
               <div className="wp-media-thumb">
-                <img src={wp.image} alt={wp.name} className="wp-card-img" />
+                <img
+                  src={wp.image || '/assets/mars_base_site.jpg'}
+                  alt={wp.name}
+                  className="wp-card-img"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = '/assets/mars_base_site.jpg';
+                  }}
+                />
                 <div className="wp-tag-badge">{wp.category}</div>
                 <div className="wp-priority-pill">{wp.priority} Priority</div>
               </div>
@@ -164,9 +172,13 @@ export default function WaypointsView({
         <div className="ground-truth-inspector-card">
           <div className="inspector-left-media">
             <img
-              src={selectedWp.povImg}
+              src={selectedWp.povImg || '/assets/mars_expanded_terrain.jpg'}
               alt="Surface POV"
               className="inspector-pov-img"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = '/assets/mars_expanded_terrain.jpg';
+              }}
             />
             <div className="inspector-pov-overlay">
               <span className="pov-tag">

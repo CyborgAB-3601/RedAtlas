@@ -7,8 +7,13 @@ import {
   Wind,
   ArrowUpRight,
   MoreHorizontal,
-  CheckCircle2
+  CheckCircle2,
+  Activity,
+  Camera,
+  ExternalLink
 } from 'lucide-react';
+import NasaImageGalleryModal from './NasaImageGalleryModal';
+import { getFallbackLandscape, getFallbackSatellite } from '../services/nasaPlaceService';
 
 export default function DetailPanel({
   locationData,
@@ -18,6 +23,7 @@ export default function DetailPanel({
   isAddedToRoute
 }) {
   const [activeTab, setActiveTab] = useState('Overview');
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
 
   // Default to Proposed Base Site if none selected
   const activeLoc = locationData || {
@@ -56,13 +62,34 @@ export default function DetailPanel({
   return (
     <div className="detail-panel-container">
       {/* Top Preview Card */}
-      <div className="preview-media-card" onClick={onPlayVideo}>
+      <div
+        className="preview-media-card"
+        onClick={() => setIsGalleryOpen(true)}
+        title="Click to view all official NASA photos & observations"
+      >
         <img
-          src={activeLoc.landscapeImg || '/assets/mars_base_site.jpg'}
+          src={activeLoc.landscapeImg || getFallbackLandscape(activeLoc.id)}
           alt={activeLoc.name}
           className="preview-media-img"
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = activeLoc.landscapeImgFallback || getFallbackLandscape(activeLoc.id);
+          }}
         />
         <div className="preview-gradient-scrim" />
+
+        {/* Official NASA Photo Gallery Badge */}
+        <div
+          className="preview-nasa-photos-pill"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsGalleryOpen(true);
+          }}
+          title="Browse all official NASA photos of this place"
+        >
+          <Camera size={12} />
+          <span>Official NASA Photos</span>
+        </div>
 
         <div className="preview-text-content">
           <h2 className="preview-title">{activeLoc.name}</h2>
@@ -73,7 +100,15 @@ export default function DetailPanel({
           </p>
         </div>
 
-        <button className="preview-play-btn" aria-label="Play location simulation">
+        <button
+          className="preview-play-btn"
+          aria-label="Play location simulation"
+          title="Simulate AR HUD View"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onPlayVideo) onPlayVideo();
+          }}
+        >
           <Play size={16} fill="white" className="play-triangle-icon" />
         </button>
       </div>
@@ -102,11 +137,20 @@ export default function DetailPanel({
           <div className="tab-content-area">
             {/* Crater Satellite Thumbnail + Coordinates */}
             <div className="geodetic-profile-row">
-              <div className="satellite-thumb-wrap">
+              <div
+                className="satellite-thumb-wrap"
+                onClick={() => setIsGalleryOpen(true)}
+                style={{ cursor: 'pointer' }}
+                title="Click to view official NASA satellite imagery"
+              >
                 <img
-                  src={activeLoc.satelliteImg || '/assets/crater_satellite_thumb.jpg'}
+                  src={activeLoc.satelliteImg || getFallbackSatellite(activeLoc.id)}
                   alt="Satellite Crater Reconnaissance"
                   className="crater-recon-img"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = activeLoc.satelliteImgFallback || getFallbackSatellite(activeLoc.id);
+                  }}
                 />
                 {/* Targeting Crosshair Reticle */}
                 <div className="target-reticle">
@@ -138,7 +182,7 @@ export default function DetailPanel({
 
               <div className="insights-quad-grid">
                 {activeLoc.insights?.map((item, idx) => {
-                  const Icon = item.icon;
+                  const Icon = typeof item.icon === 'function' ? item.icon : Activity;
                   return (
                     <div key={idx} className="insight-tile">
                       <div className="insight-icon-circle">
@@ -151,6 +195,22 @@ export default function DetailPanel({
                     </div>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* Official NASA Gallery Quick Trigger Bar */}
+            <div
+              className="official-photos-trigger-card"
+              onClick={() => setIsGalleryOpen(true)}
+              title="View all official NASA, Mars Trek, and USGS photos for this site"
+            >
+              <div className="opt-left">
+                <Camera size={14} style={{ color: '#FF5E3A' }} />
+                <span>NASA / USGS Place Imagery</span>
+              </div>
+              <div className="opt-right">
+                <span>{activeLoc.officialImages?.length ? `${activeLoc.officialImages.length} Official Photos` : 'Browse Gallery'}</span>
+                <ArrowUpRight size={13} />
               </div>
             </div>
           </div>
@@ -273,6 +333,13 @@ export default function DetailPanel({
           </button>
         </div>
       </div>
+
+      {/* Official NASA & USGS Image Gallery Lightbox Modal */}
+      <NasaImageGalleryModal
+        isOpen={isGalleryOpen}
+        onClose={() => setIsGalleryOpen(false)}
+        location={activeLoc}
+      />
     </div>
   );
 }

@@ -54,6 +54,38 @@ function getSmoothCurvePath(pts, scaleX = 10, scaleY = 6) {
   return d;
 }
 
+// Regional configuration profiles for official NASA perspectives
+export const REGIONAL_CONFIGS = {
+  'Mars Global View': {
+    title: 'Mars',
+    subtitle: 'EXPLORE THE SURFACE, PLAN YOUR MISSIONS, AND IDENTIFY THE BEST LOCATIONS FOR FUTURE EXPLORATION.',
+    scaleTicks: ['0', '100', '200', '300 KM'],
+    defaultZoom: 1.0,
+    defaultPan: { x: 0, y: 0 }
+  },
+  'Equatorial Basin': {
+    title: 'Equatorial Basin',
+    subtitle: 'EQUATORIAL CANYON & DELTA LOWLANDS: VALLES MARINERIS CHASMATA & JEZERO PALEOLAKE BASIN.',
+    scaleTicks: ['0', '25', '50', '100 KM'],
+    defaultZoom: 1.65,
+    defaultPan: { x: -80, y: -25 }
+  },
+  'Polar Ice Caps': {
+    title: 'Polar Ice Caps',
+    subtitle: 'POLAR LAYERED DEPOSITS: PLANUM BOREUM WATER-ICE SHEETS, KOROLEV ICE LAKE & CRYOGENIC CO2.',
+    scaleTicks: ['0', '50', '100', '150 KM'],
+    defaultZoom: 1.75,
+    defaultPan: { x: -10, y: 150 }
+  },
+  'Tharsis Rise': {
+    title: 'Tharsis Rise',
+    subtitle: 'THARSIS VOLCANIC PROVINCE: OLYMPUS MONS (21.3 KM), CALDERA RIM & SHIELDED LAVA TUBES.',
+    scaleTicks: ['0', '50', '100', '200 KM'],
+    defaultZoom: 1.75,
+    defaultPan: { x: 190, y: -20 }
+  }
+};
+
 export default function MarsMap({
   selectedLocation,
   onSelectLocation,
@@ -70,6 +102,7 @@ export default function MarsMap({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isGlobalDropdownOpen, setIsGlobalDropdownOpen] = useState(false);
   const [globalView, setGlobalView] = useState('Mars Global View');
+  const currentRegion = REGIONAL_CONFIGS[globalView] || REGIONAL_CONFIGS['Mars Global View'];
   const [activeTool, setActiveTool] = useState('Explore');
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isDestinationSet, setIsDestinationSet] = useState(false);
@@ -86,6 +119,38 @@ export default function MarsMap({
   // Viewport container measurement ref for high-res WMTS tiling
   const mapViewportRef = useRef(null);
   const [viewportDims, setViewportDims] = useState({ width: 1000, height: 600 });
+
+  // Top Title vs 3D Satellite Bubble collision detection
+  const titleOverlayRef = useRef(null);
+  const titleTextRef = useRef(null);
+  const bubbleOverlayRef = useRef(null);
+  const [isTextPushedDown, setIsTextPushedDown] = useState(false);
+
+  React.useEffect(() => {
+    const checkCollision = () => {
+      if (!mapViewportRef.current) return;
+      const viewportWidth = mapViewportRef.current.clientWidth || 1000;
+      const bubbleWidth = bubbleOverlayRef.current?.offsetWidth || 340;
+      const textWidth = titleTextRef.current?.scrollWidth || 200;
+
+      // Available width at top between left margin (28px) and bubble (right margin 28px + safety gap 24px)
+      const collisionThreshold = viewportWidth - bubbleWidth - 80;
+
+      if (textWidth > collisionThreshold) {
+        setIsTextPushedDown(true);
+      } else {
+        setIsTextPushedDown(false);
+      }
+    };
+
+    checkCollision();
+    const rafId = requestAnimationFrame(checkCollision);
+    window.addEventListener('resize', checkCollision);
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', checkCollision);
+    };
+  }, [selectedLocation?.name, currentRegion?.title, isExpanded, viewMode]);
 
   React.useEffect(() => {
     const updateDims = () => {
@@ -324,37 +389,7 @@ export default function MarsMap({
     C 810 375, 775 390, 750 402
   `;
 
-  // Regional configuration profiles for official NASA perspectives
-  const REGIONAL_CONFIGS = {
-    'Mars Global View': {
-      title: 'Mars',
-      subtitle: 'EXPLORE THE SURFACE, PLAN YOUR MISSIONS, AND IDENTIFY THE BEST LOCATIONS FOR FUTURE EXPLORATION.',
-      scaleTicks: ['0', '100', '200', '300 KM'],
-      defaultZoom: 1.0,
-      defaultPan: { x: 0, y: 0 }
-    },
-    'Equatorial Basin': {
-      title: 'Equatorial Basin',
-      subtitle: 'EQUATORIAL CANYON & DELTA LOWLANDS: VALLES MARINERIS CHASMATA & JEZERO PALEOLAKE BASIN.',
-      scaleTicks: ['0', '25', '50', '100 KM'],
-      defaultZoom: 1.65,
-      defaultPan: { x: -80, y: -25 }
-    },
-    'Polar Ice Caps': {
-      title: 'Polar Ice Caps',
-      subtitle: 'POLAR LAYERED DEPOSITS: PLANUM BOREUM WATER-ICE SHEETS, KOROLEV ICE LAKE & CRYOGENIC CO2.',
-      scaleTicks: ['0', '50', '100', '150 KM'],
-      defaultZoom: 1.75,
-      defaultPan: { x: -10, y: 150 }
-    },
-    'Tharsis Rise': {
-      title: 'Tharsis Rise',
-      subtitle: 'THARSIS VOLCANIC PROVINCE: OLYMPUS MONS (21.3 KM), CALDERA RIM & SHIELDED LAVA TUBES.',
-      scaleTicks: ['0', '50', '100', '200 KM'],
-      defaultZoom: 1.75,
-      defaultPan: { x: 190, y: -20 }
-    }
-  };
+  // Regional configuration profiles for official NASA perspectives (defined at module level)
 
   const regionalWaypointsMap = {
     'Mars Global View': normalWaypoints,
@@ -470,7 +505,6 @@ export default function MarsMap({
   };
 
   const activeWaypoints = regionalWaypointsMap[globalView] || normalWaypoints;
-  const currentRegion = REGIONAL_CONFIGS[globalView] || REGIONAL_CONFIGS['Mars Global View'];
 
   const getMapImageSrc = () => {
     if (viewMode === 'Elevation') return '/assets/nasa_jpl_marstrek_elevation.jpg';
@@ -581,17 +615,20 @@ export default function MarsMap({
             </div>
           )}
 
-          {/* Top Left Title Overlay with Dynamic Region & NASA Subtitle */}
-          <div className="map-top-left-overlay">
+          {/* Top Left Title Overlay with Dynamic Collision-Adaptive Position */}
+          <div
+            ref={titleOverlayRef}
+            className={`map-top-left-overlay ${isTextPushedDown ? 'pushed-down' : ''}`}
+          >
             <span className="map-index-badge">04</span>
-            <h1 className="map-main-title">{currentRegion.title}</h1>
+            <h1 ref={titleTextRef} className="map-main-title">{selectedLocation?.name || currentRegion.title}</h1>
             <p className="map-description">
-              {currentRegion.subtitle}
+              {selectedLocation?.subtitle || currentRegion.subtitle}
             </p>
           </div>
 
           {/* Top Right Mode Switcher Pill */}
-          <div className="map-top-right-overlay">
+          <div ref={bubbleOverlayRef} className="map-top-right-overlay">
             <div className="view-mode-pill-group">
               {['3D', 'Satellite', 'Elevation', 'Thermal'].map((mode) => (
                 <button
@@ -884,6 +921,10 @@ export default function MarsMap({
                   src={selectedLocation?.landscapeImg || "/assets/mars_base_site.jpg"}
                   alt={selectedLocation?.name || "Mars Destination"}
                   className="dest-thumb-img"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = "/assets/mars_base_site.jpg";
+                  }}
                 />
               </div>
 

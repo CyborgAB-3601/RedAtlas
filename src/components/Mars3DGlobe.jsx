@@ -102,6 +102,7 @@ export default function Mars3DGlobe({
   const activeTileKeysRef = useRef(new Set());
   const textureLoaderRef = useRef(new THREE.TextureLoader());
   const markerMeshesRef = useRef([]);
+  const markersGroupRef = useRef(null);
   const selectedLocationRef = useRef(selectedLocation);
   useEffect(() => {
     selectedLocationRef.current = selectedLocation;
@@ -173,9 +174,42 @@ export default function Mars3DGlobe({
     }
   }, [zoomLevel, globalView]);
 
-  // Update selected location marker visual state and smoothly fly to it
+  // Update selected location marker visual state, dynamically spawn pin if new, and smoothly fly to it
   useEffect(() => {
     if (!selectedLocation?.id) return;
+
+    // Check if marker mesh already exists in globe scene
+    let existingMesh = markerMeshesRef.current.find(
+      (m) => m.userData.location?.id === selectedLocation.id
+    );
+
+    // If it's a newly searched location not yet in the globe scene, spawn it dynamically!
+    if (!existingMesh && markersGroupRef.current && selectedLocation.coords?.lat && selectedLocation.coords?.lng) {
+      const { lat, lng } = parseLatLng(selectedLocation.coords.lat, selectedLocation.coords.lng);
+      const markerPos = latLngToPosition(lat, lng, 2.0 * 1.008);
+
+      const pinGeom = new THREE.SphereGeometry(0.020, 16, 16);
+      const pinMat = new THREE.MeshBasicMaterial({ color: 0xFF3B30 });
+      const pinMesh = new THREE.Mesh(pinGeom, pinMat);
+      pinMesh.position.copy(markerPos);
+      pinMesh.userData = { location: selectedLocation };
+      markersGroupRef.current.add(pinMesh);
+
+      const ringGeom = new THREE.RingGeometry(0.028, 0.038, 24);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: 0xFF3B30,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.95
+      });
+      const ringMesh = new THREE.Mesh(ringGeom, ringMat);
+      ringMesh.position.copy(markerPos);
+      ringMesh.lookAt(new THREE.Vector3(0, 0, 0));
+      markersGroupRef.current.add(ringMesh);
+      pinMesh.userData.ring = ringMesh;
+
+      markerMeshesRef.current.push(pinMesh);
+    }
 
     markerMeshesRef.current.forEach((mesh) => {
       const isSelected = selectedLocation.id === mesh.userData.location?.id;
@@ -188,7 +222,7 @@ export default function Mars3DGlobe({
       const { lat, lng } = parseLatLng(selectedLocation.coords.lat, selectedLocation.coords.lng);
       flyToLatLng(lat, lng, 2.8);
     }
-  }, [selectedLocation?.id, flyToLatLng]);
+  }, [selectedLocation?.id, selectedLocation?.coords?.lat, selectedLocation?.coords?.lng, flyToLatLng]);
 
   // Dynamic Mars Trek Tile LOD Manager
   const updateDynamicLODTiles = useCallback(() => {
@@ -426,6 +460,7 @@ export default function Mars3DGlobe({
     // 8. Exploration Waypoint Pins with Dynamic Perspective Scaling
     const markersGroup = new THREE.Group();
     scene.add(markersGroup);
+    markersGroupRef.current = markersGroup;
 
     const locationList = Object.values(MARS_LOCATIONS);
     const markerMeshes = [];
@@ -626,6 +661,7 @@ export default function Mars3DGlobe({
       starGeometry.dispose();
       starMaterial.dispose();
       renderer.dispose();
+      markersGroupRef.current = null;
     };
   }, [viewMode, updateDynamicLODTiles, activeLayerConfig]);
 
