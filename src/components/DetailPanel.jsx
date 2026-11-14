@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Play,
   Droplet,
@@ -7,6 +7,7 @@ import {
   Wind,
   ArrowUpRight,
   MoreHorizontal,
+  MapPinOff,
   CheckCircle2,
   Activity,
   Camera,
@@ -20,10 +21,27 @@ export default function DetailPanel({
   activeMission,
   onPlayVideo,
   onAddToRoute,
-  isAddedToRoute
+  isAddedToRoute,
+  onUnmark
 }) {
   const [activeTab, setActiveTab] = useState('Overview');
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
+        setIsMoreMenuOpen(false);
+      }
+    };
+    if (isMoreMenuOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isMoreMenuOpen]);
 
   // Default to Proposed Base Site if none selected
   const activeLoc = locationData || {
@@ -328,9 +346,35 @@ export default function DetailPanel({
             )}
           </button>
 
-          <button className="more-options-btn" aria-label="More options">
-            <MoreHorizontal size={18} />
-          </button>
+          <div className="more-options-container" ref={moreMenuRef}>
+            <button
+              className={`more-options-btn ${isMoreMenuOpen ? 'active' : ''}`}
+              onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+              aria-label="More options"
+              title="More options"
+            >
+              <MoreHorizontal size={18} />
+            </button>
+
+            {isMoreMenuOpen && (
+              <div className="more-options-dropdown animate-fade-in">
+                <button
+                  className="more-dropdown-item unmark-item"
+                  onClick={() => {
+                    setIsMoreMenuOpen(false);
+                    if (onUnmark) onUnmark(activeLoc);
+                  }}
+                  title="Unmark location"
+                >
+                  <MapPinOff size={15} className="unmark-icon" />
+                  <div className="unmark-item-text">
+                    <span className="unmark-title">Unmark Location</span>
+                    <span className="unmark-desc">Clear marker & selection</span>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

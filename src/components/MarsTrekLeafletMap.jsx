@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MARS_LOCATIONS } from '../data/marsLocations';
+import { MARS_LOCATIONS, getSmartMissionRoute, parseLatLng } from '../data/marsLocations';
 
 const TREK_LAYERS = {
   Satellite: {
@@ -18,12 +18,6 @@ const TREK_LAYERS = {
   }
 };
 
-function parseLatLng(latStr, lngStr) {
-  const latVal = parseFloat(latStr) * (latStr.includes('S') ? -1 : 1);
-  const lngVal = parseFloat(lngStr) * (lngStr.includes('W') ? -1 : 1);
-  return [latVal, lngVal];
-}
-
 const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
   {
     viewMode = 'Satellite',
@@ -35,7 +29,9 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
     activeWaypoints = [],
     isExpanded = false,
     pinnedLocations = [],
-    onRemovePin
+    onRemovePin,
+    activeMission = null,
+    routeObjectives = []
   },
   ref
 ) {
@@ -259,15 +255,12 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
       locationsToRender.push(selectedLocation);
     }
 
-    const routeCoords = [];
-
+    // 1. RENDER MAIN ATTRACTIONS & LANDMARKS AS DISTINCT POINTS (NO DEFAULT CONNECTING LINE!)
     locationsToRender.forEach((loc) => {
       if (!loc.coords?.lat || !loc.coords?.lng) return;
       const [lat, lng] = parseLatLng(loc.coords.lat, loc.coords.lng);
       const isSelected = selectedLocation?.id === loc.id;
       const isBase = loc.id === 'proposed_base';
-
-      routeCoords.push([lat, lng]);
 
       let html = '';
       let iconSize = [32, 32];
@@ -325,65 +318,154 @@ const MarsTrekLeafletMap = forwardRef(function MarsTrekLeafletMap(
       markersGroup.addLayer(marker);
     });
 
-    // Draw route connecting exploration sites
-    if (routeCoords.length >= 2) {
-      const routeShadow = L.polyline(routeCoords, {
-        color: 'rgba(0, 0, 0, 0.65)',
-        weight: 5,
-        lineCap: 'round',
-        lineJoin: 'round'
-      });
-      routeGroup.addLayer(routeShadow);
+    // 2. RENDER SMART MISSION ROUTE FROM BASE TO OBJECTIVE (ONLY WHEN A MISSION IS ACTIVE)
+    if (activeMission) {
+      const smartRoute = getSmartMissionRoute(activeMission, routeObjectives);
+      if (smartRoute && smartRoute.polylineCoords.length >= 2) {
+        // Deep contrast path shadow
+        const routeShadow = L.polyline(smartRoute.polylineCoords, {
+          color: 'rgba(0, 0, 0, 0.75)',
+          weight: 6,
+          lineCap: 'round',
+          lineJoin: 'round'
+        });
+        routeGroup.addLayer(routeShadow);
 
-  // Render Custom Pinned Markers Created from 3D Gaussian Splatting
-  if (pinnedLocations && pinnedLocations.length > 0) {
-    pinnedLocations.forEach((pin) => {
-      if (!pin.coords?.lat || !pin.coords?.lng) return;
-      const [lat, lng] = parseLatLng(pin.coords.lat, pin.coords.lng);
-      const isSelected = selectedLocation?.id === pin.id;
+        // Animated glowing mission route line
+        const routeLine = L.polyline(smartRoute.polylineCoords, {
+          color: '#FF5533',
+          weight: 3.2,
+          dashArray: '6, 8',
+          lineCap: 'round',
+          lineJoin: 'round',
+          className: 'leaflet-smart-route-animated'
+        });
+        routeGroup.addLayer(routeLine);
 
-      const html = `
-        <div class="custom-marked-pin-leaflet leaflet-custom-marker ${isSelected ? 'selected' : ''}">
-          <div class="pin-beacon-pulse"></div>
-          <div class="pin-beacon-core"></div>
-          <div class="pin-tag-badge">
-            <span class="pin-name-text">${pin.name}</span>
-            <span class="pin-elev-text">${pin.elevationVal || ''}</span>
-          </div>
-        </div>
-      `;
+        // Render Mission Route Nodes: Base -> Intermediate Waypoints -> Objective -> Added Objectives
+        smartRoute.allNodes.forEach((node) => {
+          let nodeHtml = '';
+          let iconSize = [32, 32];
+          let iconAnchor = [16, 16];
 
-      const customIcon = L.divIcon({
-        className: 'leaflet-custom-red-pin-wrapper',
-        html,
-        iconSize: [160, 40],
-        iconAnchor: [12, 20]
-      });
+          if (node.type === 'base') {
+            nodeHtml = `
+              <div class="base-site-marker leaflet-custom-marker mission-base-marker">
+                <div class="base-static-ring inner"></div>
+                <div class="base-static-ring outer"></div>
+                <div class="base-pulse-ring"></div>
+                <div class="base-core-dot"></div>
+                <div class="base-callout-bubble">
+                  <div class="base-flag-circle">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
+                  </div>
+                  <div class="base-info-text">
+                    <span class="base-title-text">${node.name}</span>
+                    <span class="base-coords-text">MISSION BASE STATION</span>
+                  </div>
+                </div>
+              </div>
+            `;
+            iconSize = [185, 50];
+            iconAnchor = [20, 25];
+          } else if (node.type === 'objective') {
+            nodeHtml = `
+              <div class="smart-route-objective-marker leaflet-custom-marker">
+                <div class="obj-beacon-pulse"></div>
+                <div class="obj-core-dot"></div>
+                <div class="obj-callout-badge">
+                  <span class="obj-badge-tag">MISSION OBJECTIVE</span>
+                  <span class="obj-title-text">${node.name}</span>
+                </div>
+              </div>
+            `;
+            iconSize = [180, 42];
+            iconAnchor = [10, 20];
+          } else if (node.type === 'added_objective') {
+            nodeHtml = `
+              <div class="smart-route-added-objective-marker leaflet-custom-marker">
+                <div class="added-obj-pulse-ring"></div>
+                <div class="added-obj-core-dot"></div>
+                <div class="obj-callout-badge added-objective">
+                  <span class="obj-badge-tag secondary">ADDED OBJECTIVE</span>
+                  <span class="obj-title-text">${node.name}</span>
+                </div>
+              </div>
+            `;
+            iconSize = [170, 38];
+            iconAnchor = [10, 18];
+          } else {
+            // Tactical navigation corridor waypoint
+            nodeHtml = `
+              <div class="smart-route-wp-node leaflet-custom-marker">
+                <div class="wp-node-pulse"></div>
+                <div class="wp-node-dot"></div>
+                <div class="wp-node-bubble">
+                  <span class="wp-node-name">${node.name}</span>
+                </div>
+              </div>
+            `;
+            iconSize = [140, 26];
+            iconAnchor = [8, 13];
+          }
 
-      const pinMarker = L.marker([lat, lng], { icon: customIcon });
+          const nodeIcon = L.divIcon({
+            className: 'leaflet-smart-node-wrapper',
+            html: nodeHtml,
+            iconSize,
+            iconAnchor
+          });
 
-      pinMarker.on('click', (e) => {
-        L.DomEvent.stopPropagation(e);
-        if (onSelectLocation) {
-          onSelectLocation(pin);
-        }
-      });
-
-      markersGroup.addLayer(pinMarker);
-    });
-  }
-
-      const routeLine = L.polyline(routeCoords, {
-        color: '#FFFFFF',
-        weight: 2.5,
-        dashArray: '4, 8',
-        lineCap: 'round',
-        lineJoin: 'round',
-        className: 'leaflet-route-animated'
-      });
-      routeGroup.addLayer(routeLine);
+          const nodeMarker = L.marker([node.lat, node.lng], { icon: nodeIcon });
+          nodeMarker.on('click', (e) => {
+            L.DomEvent.stopPropagation(e);
+            if (onSelectLocation) {
+              onSelectLocation(node);
+            }
+          });
+          routeGroup.addLayer(nodeMarker);
+        });
+      }
     }
-  }, [activeWaypoints, selectedLocation?.id, onSelectLocation]);
+
+    // 3. RENDER CUSTOM PINNED MARKERS FROM 3D GAUSSIAN SPLATTING
+    if (pinnedLocations && pinnedLocations.length > 0) {
+      pinnedLocations.forEach((pin) => {
+        if (!pin.coords?.lat || !pin.coords?.lng) return;
+        const [lat, lng] = parseLatLng(pin.coords.lat, pin.coords.lng);
+        const isSelected = selectedLocation?.id === pin.id;
+
+        const html = `
+          <div class="custom-marked-pin-leaflet leaflet-custom-marker ${isSelected ? 'selected' : ''}">
+            <div class="pin-beacon-pulse"></div>
+            <div class="pin-beacon-core"></div>
+            <div class="pin-tag-badge">
+              <span class="pin-name-text">${pin.name}</span>
+              <span class="pin-elev-text">${pin.elevationVal || ''}</span>
+            </div>
+          </div>
+        `;
+
+        const customIcon = L.divIcon({
+          className: 'leaflet-custom-red-pin-wrapper',
+          html,
+          iconSize: [160, 40],
+          iconAnchor: [12, 20]
+        });
+
+        const pinMarker = L.marker([lat, lng], { icon: customIcon });
+
+        pinMarker.on('click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          if (onSelectLocation) {
+            onSelectLocation(pin);
+          }
+        });
+
+        markersGroup.addLayer(pinMarker);
+      });
+    }
+  }, [activeWaypoints, selectedLocation?.id, onSelectLocation, activeMission, routeObjectives, pinnedLocations]);
 
   // 5. Smoothly fly to selected location on map when selectedLocation changes (from search or clicks)
   useEffect(() => {

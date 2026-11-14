@@ -28,8 +28,10 @@ export default function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSimOpen, setIsSimOpen] = useState(false);
   const [isMissionsOpen, setIsMissionsOpen] = useState(false);
-  const [isAddedToRoute, setIsAddedToRoute] = useState(false);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
+
+  // Dynamic secondary objectives added to the active mission route
+  const [routeObjectives, setRouteObjectives] = useState([]);
 
   // Active mission scenario (default: Gale Crater Boxwork Expedition)
   const [activeMission, setActiveMission] = useState(NASA_MISSIONS[0]);
@@ -73,6 +75,22 @@ export default function App() {
     }
   };
 
+  const handleToggleAddToRoute = (loc) => {
+    if (!loc) return;
+    setRouteObjectives((prev) => {
+      const exists = prev.some((o) => o.id === loc.id);
+      if (exists) {
+        return prev.filter((o) => o.id !== loc.id);
+      }
+      return [...prev, loc];
+    });
+  };
+
+  const isLocationInRoute = (locId) => {
+    if (!locId) return false;
+    return routeObjectives.some((o) => o.id === locId);
+  };
+
   const handleSelectLocation = (loc) => {
     if (!loc) return;
     let fullLoc;
@@ -84,7 +102,6 @@ export default function App() {
       fullLoc = loc;
     }
     setSelectedLocation(fullLoc);
-    setIsAddedToRoute(false);
     setActiveNav('Map');
     setActiveSection('Overview');
 
@@ -98,6 +115,7 @@ export default function App() {
 
   const handleSelectMission = (mission) => {
     setActiveMission(mission);
+    setRouteObjectives([]); // Fresh smart route starting from base to mission objective
     handleSelectLocation(mission.targetLocationId);
     setActiveNav('Map');
     setActiveSection('Overview');
@@ -220,6 +238,7 @@ export default function App() {
             onOpenMissions={() => setIsMissionsOpen(true)}
             pinnedLocations={activeSatellitePin ? [activeSatellitePin] : []}
             onRemovePin={handleRemovePinnedLocation}
+            routeObjectives={routeObjectives}
           />
         );
     }
@@ -261,8 +280,17 @@ export default function App() {
               locationData={selectedLocation}
               activeMission={activeMission}
               onPlayVideo={() => setIsSimOpen(true)}
-              onAddToRoute={() => setIsAddedToRoute(!isAddedToRoute)}
-              isAddedToRoute={isAddedToRoute}
+              onAddToRoute={() => handleToggleAddToRoute(selectedLocation)}
+              isAddedToRoute={isLocationInRoute(selectedLocation?.id)}
+              onUnmark={(loc) => {
+                const targetId = loc?.id || selectedLocation?.id;
+                if (targetId) {
+                  handleRemovePinnedLocation(targetId);
+                  setRouteObjectives((prev) => prev.filter((o) => o.id !== targetId));
+                }
+                setSelectedLocation(null);
+                setActiveSatellitePin(null);
+              }}
             />
           </aside>
         )}

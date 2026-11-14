@@ -659,6 +659,267 @@ export const NASA_MISSIONS = [
   }
 ];
 
+// Helper to normalize coordinates string or number into [lat, lng] float values
+export function parseLatLng(latVal, lngVal) {
+  if (typeof latVal === 'number' && typeof lngVal === 'number') {
+    return [latVal, lngVal];
+  }
+  const latStr = String(latVal || '0');
+  const lngStr = String(lngVal || '0');
+  const lat = parseFloat(latStr) * (latStr.includes('S') ? -1 : 1);
+  const lng = parseFloat(lngStr) * (lngStr.includes('W') ? -1 : 1);
+  return [isNaN(lat) ? 0 : lat, isNaN(lng) ? 0 : lng];
+}
+
+// -----------------------------------------------------------------------------
+// SMART MISSION ROUTES (Tactical Hazard-Aware Paths from Base to Objectives)
+// -----------------------------------------------------------------------------
+export const SMART_MISSION_ROUTES = {
+  gale_boxwork: {
+    missionId: 'gale_boxwork',
+    name: 'Mount Sharp Boxwork Traverse',
+    base: {
+      id: 'base_bradbury',
+      name: 'Bradbury Landing Base',
+      type: 'base',
+      coords: { lat: '4.59° S', lng: '137.44° E', elev: '-4,450 m' },
+      lat: -4.59,
+      lng: 137.44,
+      desc: 'Curiosity Touchdown Base Station & Primary Hab'
+    },
+    waypoints: [
+      {
+        id: 'gale_wp_1',
+        name: 'WP-1: Yellowknife Bay',
+        type: 'waypoint',
+        coords: { lat: '4.63° S', lng: '137.42° E', elev: '-4,480 m' },
+        lat: -4.63,
+        lng: 137.42,
+        desc: 'Ancient lacustrine mudstone bed; flat terrain'
+      },
+      {
+        id: 'gale_wp_2',
+        name: 'WP-2: Dingo Gap Dune Pass',
+        type: 'corridor',
+        coords: { lat: '4.68° S', lng: '137.39° E', elev: '-4,410 m' },
+        lat: -4.68,
+        lng: 137.39,
+        desc: 'Low-hazard sand saddle crossing (<4° slope)'
+      },
+      {
+        id: 'gale_wp_3',
+        name: 'WP-3: Murray Buttes Gateway',
+        type: 'waypoint',
+        coords: { lat: '4.72° S', lng: '137.37° E', elev: '-4,320 m' },
+        lat: -4.72,
+        lng: 137.37,
+        desc: 'Sheltered canyon path through layered sandstone mesas'
+      }
+    ],
+    objective: {
+      id: 'gale_obj',
+      name: 'Mount Sharp Boxwork Ridge',
+      type: 'objective',
+      coords: { lat: '4.76° S', lng: '137.35° E', elev: '-3,850 m' },
+      lat: -4.76,
+      lng: 137.35,
+      desc: 'Primary Mission Target: 2025 Mineralized Boxwork Ridge'
+    }
+  },
+  jezero_sample: {
+    missionId: 'jezero_sample',
+    name: 'Jezero Delta Sample Retrieval Route',
+    base: {
+      id: 'base_butler',
+      name: 'Octavia E. Butler Base',
+      type: 'base',
+      coords: { lat: '18.44° N', lng: '77.45° E', elev: '-2,560 m' },
+      lat: 18.44,
+      lng: 77.45,
+      desc: 'Perseverance Landing Site & Forward Operations Base'
+    },
+    waypoints: [
+      {
+        id: 'jezero_wp_1',
+        name: 'WP-1: Séítah Passage',
+        type: 'corridor',
+        coords: { lat: '18.42° N', lng: '77.42° E', elev: '-2,550 m' },
+        lat: 18.42,
+        lng: 77.42,
+        desc: 'Solid basaltic bedrock corridor avoiding sand ripples'
+      },
+      {
+        id: 'jezero_wp_2',
+        name: 'WP-2: Kodiak Butte Bench',
+        type: 'waypoint',
+        coords: { lat: '18.40° N', lng: '77.39° E', elev: '-2,540 m' },
+        lat: 18.40,
+        lng: 77.39,
+        desc: 'Ancient lake shoreline bench and delta overlook'
+      },
+      {
+        id: 'jezero_wp_3',
+        name: 'WP-3: Delta Scarp Staging Ramp',
+        type: 'waypoint',
+        coords: { lat: '18.39° N', lng: '77.37° E', elev: '-2,530 m' },
+        lat: 18.39,
+        lng: 77.37,
+        desc: 'Gentle incline ramp leading up to river delta fan'
+      }
+    ],
+    objective: {
+      id: 'jezero_obj',
+      name: 'Three Forks Sample Depot',
+      type: 'objective',
+      coords: { lat: '18.38° N', lng: '77.35° E', elev: '-2,520 m' },
+      lat: 18.38,
+      lng: 77.35,
+      desc: 'Primary Mission Target: Cached Hermetic Titanium Core Tubes'
+    }
+  },
+  olympus_shelter: {
+    missionId: 'olympus_shelter',
+    name: 'Olympus Mons Lava Tube Recon Route',
+    base: {
+      id: 'base_ares',
+      name: 'Ares Base Alpha',
+      type: 'base',
+      coords: { lat: '18.65° N', lng: '133.80° W', elev: '+1,200 m' },
+      lat: 18.65,
+      lng: -133.80,
+      desc: 'Permanent Habitat Staging Base on Olympus Plateau'
+    },
+    waypoints: [
+      {
+        id: 'olympus_wp_1',
+        name: 'WP-1: Basal Scarp Overlook',
+        type: 'waypoint',
+        coords: { lat: '18.52° N', lng: '133.95° W', elev: '+1,120 m' },
+        lat: 18.52,
+        lng: -133.95,
+        desc: 'Geodetic survey bench avoiding sheer 6 km scarp drop'
+      },
+      {
+        id: 'olympus_wp_2',
+        name: 'WP-2: Pahoehoe Flow Corridor',
+        type: 'corridor',
+        coords: { lat: '18.38° N', lng: '134.12° W', elev: '+1,050 m' },
+        lat: 18.38,
+        lng: -134.12,
+        desc: 'Ultra-low slope basaltic sheet corridor (<3° incline)'
+      },
+      {
+        id: 'olympus_wp_3',
+        name: 'WP-3: Lava Trench Sector',
+        type: 'waypoint',
+        coords: { lat: '18.25° N', lng: '134.25° W', elev: '+960 m' },
+        lat: 18.25,
+        lng: -134.25,
+        desc: 'Staging area at collapsed lava channel depression'
+      }
+    ],
+    objective: {
+      id: 'olympus_obj',
+      name: 'Alba Lava Tube Skylight',
+      type: 'objective',
+      coords: { lat: '18.15° N', lng: '134.38° W', elev: '+850 m' },
+      lat: 18.15,
+      lng: -134.38,
+      desc: 'Primary Mission Target: 250m-wide radiation-shielded cavern entrance'
+    }
+  }
+};
+
+/**
+ * Builds a smart route from a mission's base station through tactical waypoints
+ * to the mission objective, plus any dynamically added secondary objectives.
+ */
+export function getSmartMissionRoute(mission, addedObjectives = []) {
+  if (!mission) return null;
+  const missionConfig = SMART_MISSION_ROUTES[mission.id];
+  let base, waypoints, objective;
+
+  if (missionConfig) {
+    base = missionConfig.base;
+    waypoints = [...missionConfig.waypoints];
+    objective = missionConfig.objective;
+  } else {
+    // Dynamic generation from default base to mission target
+    const targetLoc = getLocationById(mission.targetLocationId || mission.id) || MARS_LOCATIONS.proposed_base;
+    const [tLat, tLng] = parseLatLng(targetLoc.coords?.lat || '0', targetLoc.coords?.lng || '0');
+    base = {
+      id: 'dynamic_base',
+      name: 'Chryse Base Alpha',
+      type: 'base',
+      coords: { lat: '14.6° N', lng: '32.3° E' },
+      lat: 14.6,
+      lng: 32.3,
+      desc: 'Human Landing & Habitat Base'
+    };
+    waypoints = [
+      {
+        id: 'dyn_wp_1',
+        name: 'WP-1: Corridor Transit',
+        type: 'corridor',
+        lat: (14.6 + tLat) * 0.6,
+        lng: (32.3 + tLng) * 0.6,
+        desc: 'Slope hazard avoidance route'
+      },
+      {
+        id: 'dyn_wp_2',
+        name: 'WP-2: Approach Vector',
+        type: 'waypoint',
+        lat: (14.6 + tLat) * 0.3 + tLat * 0.7,
+        lng: (32.3 + tLng) * 0.3 + tLng * 0.7,
+        desc: 'Low-incline staging waypoint'
+      }
+    ];
+    objective = {
+      id: targetLoc.id,
+      name: `${targetLoc.name} (Primary Objective)`,
+      type: 'objective',
+      coords: targetLoc.coords,
+      lat: tLat,
+      lng: tLng,
+      desc: `Mission Objective: ${mission.objective || targetLoc.name}`
+    };
+  }
+
+  // Parse dynamically added secondary objectives
+  const parsedAdded = (addedObjectives || []).map((obj, idx) => {
+    let [lat, lng] = [0, 0];
+    if (typeof obj.lat === 'number' && typeof obj.lng === 'number') {
+      lat = obj.lat;
+      lng = obj.lng;
+    } else if (obj.coords?.lat && obj.coords?.lng) {
+      [lat, lng] = parseLatLng(obj.coords.lat, obj.coords.lng);
+    }
+    return {
+      id: obj.id || `added_obj_${idx}`,
+      name: obj.name || `Secondary Objective #${idx + 1}`,
+      type: 'added_objective',
+      lat,
+      lng,
+      coords: obj.coords || { lat: `${lat.toFixed(2)}°`, lng: `${lng.toFixed(2)}°` },
+      desc: obj.subtitle || obj.desc || 'Secondary Expedition Objective'
+    };
+  });
+
+  const allNodes = [base, ...waypoints, objective, ...parsedAdded];
+  const polylineCoords = allNodes.map((n) => [n.lat, n.lng]);
+
+  return {
+    missionId: mission.id,
+    missionName: mission.name,
+    base,
+    waypoints,
+    objective,
+    addedObjectives: parsedAdded,
+    allNodes,
+    polylineCoords
+  };
+}
+
 // -----------------------------------------------------------------------------
 // SCIENCE WAYPOINTS (Hyperlocalized Targets)
 // -----------------------------------------------------------------------------
